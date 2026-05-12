@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>FitTrack</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
 <style>
   :root{
@@ -27,6 +28,7 @@
   .stat{background:var(--dark);}
   .stat strong{display:block;color:var(--blue);font-size:22px;}
   .stat span{color:var(--muted);font-size:13px;}
+  .stat.empty strong{color:var(--muted);}
   .card{margin-bottom:18px;box-shadow:0 6px 18px rgba(0,0,0,.25);}
   .meal{background:var(--dark);}
   .tabs,.diet-tabs{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px;}
@@ -189,7 +191,16 @@
   .tracker-routine-chip{display:flex;justify-content:space-between;align-items:center;padding:9px 13px;background:var(--dark);border-radius:10px;margin-bottom:7px;border:1px solid var(--soft);}
   .tracker-routine-chip .chip-label{font-weight:bold;font-size:14px;}
   .tracker-routine-chip .chip-status{font-size:12px;padding:3px 9px;border-radius:999px;}
-
+  .consistency-viz{display:grid;grid-template-columns:220px 1fr;gap:18px;align-items:center;margin-top:8px;}
+  .consistency-donut{width:180px;height:180px;border-radius:50%;position:relative;margin:auto;}
+  .consistency-donut::after{content:'';position:absolute;inset:24px;border-radius:50%;background:var(--card);border:1px solid var(--soft);}
+  .consistency-donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1;}
+  .consistency-donut-center strong{font-size:34px;color:var(--text);line-height:1;}
+  .consistency-donut-center span{font-size:12px;color:var(--muted);margin-top:6px;}
+  .consistency-legend{display:grid;grid-template-columns:repeat(2,minmax(120px,1fr));gap:10px;margin-bottom:12px;}
+  .consistency-legend-item{background:var(--dark);border:1px solid var(--soft);border-radius:12px;padding:10px 12px;}
+  .consistency-legend-item strong{display:block;font-size:20px;color:var(--text);}
+  .consistency-legend-item span{font-size:12px;color:var(--muted);}
   @media(max-width:650px){
     h1{font-size:25px}
     .container{padding:14px}
@@ -199,6 +210,8 @@
     .tracker-grid{grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}
     .ex-header{flex-direction:column;align-items:stretch}
     .steps-indicator .step-line{width:14px}
+    .consistency-viz{grid-template-columns:1fr}
+    .consistency-legend{grid-template-columns:repeat(2,minmax(0,1fr))}
   }
 
   /* ---- Auth overlay ---- */
@@ -214,6 +227,10 @@
   .settings-section{background:var(--dark);border:1px solid var(--soft);border-radius:14px;padding:20px;margin-bottom:18px;}
   .settings-section h3{margin-top:0;border:none;padding:0;}
   .danger-btn{background:var(--red)!important;color:#fff!important;}
+  #syncStatus.syncing{background:rgba(56,189,248,.15);color:var(--blue);}
+  #syncStatus.synced{background:rgba(34,197,94,.15);color:var(--green);}
+  #syncStatus.offline{background:rgba(239,68,68,.15);color:var(--red);}
+  #syncStatus.error{background:rgba(239,68,68,.15);color:var(--red);}
 </style>
 </head>
 <body>
@@ -228,8 +245,8 @@
     <div id="authLoginForm">
       <div class="auth-error" id="loginError"></div>
       <div class="form-group">
-        <label>Username</label>
-        <input type="text" id="loginUsername" placeholder="Enter username" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('loginPassword').focus()">
+        <label>Email</label>
+        <input type="email" id="loginEmail" placeholder="Enter email" autocomplete="email" onkeydown="if(event.key==='Enter')document.getElementById('loginPassword').focus()">
       </div>
       <div class="form-group">
         <label>Password</label>
@@ -243,8 +260,8 @@
     <div id="authRegisterForm" style="display:none">
       <div class="auth-error" id="registerError"></div>
       <div class="form-group">
-        <label>Username</label>
-        <input type="text" id="regUsername" placeholder="Choose a username" autocomplete="username">
+        <label>Email</label>
+        <input type="email" id="regEmail" placeholder="Enter email" autocomplete="email">
       </div>
       <div class="form-group">
         <label>Password</label>
@@ -267,15 +284,16 @@
     <h1 style="margin:0">🏋️ FitTrack</h1>
     <div style="display:flex;align-items:center;gap:10px">
       <span id="headerUsername" style="color:var(--muted);font-size:13px"></span>
+      <span id="syncStatus" style="font-size:11px;padding:3px 9px;border-radius:999px;background:rgba(51,65,85,.5);color:var(--muted);display:none"></span>
       <button class="btn-sm" onclick="authLogout()" style="font-size:12px;padding:6px 14px">Logout</button>
     </div>
   </div>
   <p class="subtitle">Morning calisthenics, night gym, diet tabs, and searchable food macro database</p>
   <div class="stats">
-    <div class="stat"><strong>62.3 kg</strong><span>Weight</span></div>
-    <div class="stat"><strong>25.8%</strong><span>Body Fat</span></div>
-    <div class="stat"><strong>100–120g</strong><span>Protein</span></div>
-    <div class="stat"><strong>2000–2200</strong><span>Calories</span></div>
+    <div class="stat empty" id="statCardWeight"><strong id="headerStatWeight">--</strong><span>Latest Weight</span></div>
+    <div class="stat empty" id="statCardBodyFat"><strong id="headerStatBodyFat">--</strong><span>Latest Body Fat</span></div>
+    <div class="stat empty" id="statCardProtein"><strong id="headerStatProtein">--</strong><span>Latest Protein</span></div>
+    <div class="stat empty" id="statCardCalories"><strong id="headerStatCalories">--</strong><span>Latest Calories</span></div>
   </div>
 </header>
 
@@ -288,27 +306,33 @@
   <button class="tab" id="tab-routines" onclick="showSection('routines',this)">Routines</button>
   <button class="tab" id="tab-workout-session" onclick="showSection('workout-session',this)">Workout</button>
   <button class="tab" id="tab-calendar" onclick="showSection('calendar',this)">Calendar</button>
-  <button class="tab" id="tab-progress" onclick="showSection('progress',this)">Progress</button>
   <button class="tab" id="tab-settings" onclick="showSection('settings',this)">Settings</button>
-</div>
-
-<div class="card">
-  <h3>Today Progress</h3>
-  <div class="progress-wrap"><div id="progressBar" class="progress-bar"></div></div>
-  <p id="progressText" class="small">0% completed</p>
-  <button onclick="resetToday()">Reset Today</button>
 </div>
 
 <!-- ===== EXISTING SECTIONS ===== -->
 <section id="overview" class="section active">
   <div class="card">
-    <h2>Goal</h2>
-    <ul>
-      <li>Reduce fat and build muscle at the same time.</li>
-      <li>Stay consistent for the first 2 months.</li>
-      <li>Reach 10 clean pushups and slowly progress toward 10 pullups.</li>
-      <li>Eat 100–120g protein daily with controlled carbs and fats.</li>
-    </ul>
+    <h2>Progress &amp; Statistics</h2>
+    <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:18px">
+      <div class="form-group" style="margin:0">
+        <label>Start Date</label>
+        <input type="date" id="progressStartDate" onchange="progressRangeChanged()">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>End Date</label>
+        <input type="date" id="progressEndDate" onchange="progressRangeChanged()">
+      </div>
+      <button class="btn-sm" onclick="setProgressRangeDays(30)">Last 30 Days</button>
+      <button class="btn-sm" onclick="setProgressRangeDays(7)">Last 7 Days</button>
+      <button class="btn-sm" onclick="setProgressRangeDays(90)">Last 90 Days</button>
+    </div>
+    <div id="progressConsistency" style="margin-bottom:20px"></div>
+    <h3>Recent Workouts</h3>
+    <div id="progressWorkoutHistory" style="margin-bottom:20px"></div>
+    <h3>Body Metrics</h3>
+    <div id="progressBodyMetrics" style="margin-bottom:20px"></div>
+    <h3>Nutrition (last 14 days logged)</h3>
+    <div id="progressNutrition"></div>
   </div>
 </section>
 
@@ -640,31 +664,6 @@
   </div>
 </section>
 
-<!-- PROGRESS & STATISTICS -->
-<section id="progress" class="section">
-  <div class="card">
-    <h2>Progress &amp; Statistics</h2>
-
-    <!-- Goals progress -->
-    <div id="progressGoals" style="margin-bottom:24px"></div>
-
-    <!-- Consistency strip -->
-    <div id="progressConsistency" style="margin-bottom:20px"></div>
-
-    <!-- Recent workouts -->
-    <h3>Recent Workouts</h3>
-    <div id="progressWorkoutHistory" style="margin-bottom:20px"></div>
-
-    <!-- Body metrics -->
-    <h3>Body Metrics</h3>
-    <div id="progressBodyMetrics" style="margin-bottom:20px"></div>
-
-    <!-- Nutrition averages -->
-    <h3>Nutrition (last 14 days logged)</h3>
-    <div id="progressNutrition"></div>
-  </div>
-</section>
-
 <!-- SETTINGS -->
 <section id="settings" class="section">
   <div class="card">
@@ -699,10 +698,6 @@
     <div class="settings-section">
       <h3>Change Password</h3>
       <div class="form-group" style="max-width:320px">
-        <label>Current Password</label>
-        <input type="password" id="settingsOldPw" placeholder="Current password">
-      </div>
-      <div class="form-group" style="max-width:320px">
         <label>New Password</label>
         <input type="password" id="settingsNewPw" placeholder="New password">
       </div>
@@ -720,11 +715,11 @@
       <p style="color:var(--muted);font-size:14px;margin-bottom:14px">These actions are permanent and cannot be undone.</p>
       <div style="display:flex;flex-wrap:wrap;gap:10px">
         <button class="danger-btn" onclick="settingsResetMyData()">Reset All My Data</button>
-        <button class="danger-btn" onclick="settingsDeleteAccount()">Delete My Account</button>
+        <button class="danger-btn" onclick="settingsDeleteAccount()">Delete My Cloud Data</button>
       </div>
       <p style="color:var(--muted);font-size:12px;margin-top:10px">
         <strong>Reset All My Data</strong> — deletes all your workouts, routines, logs, and tracker history but keeps your account.<br>
-        <strong>Delete My Account</strong> — removes your account and all associated data permanently.
+        <strong>Delete My Cloud Data</strong> — deletes your synced data and signs you out. Your Supabase login still exists.
       </p>
     </div>
   </div>
@@ -835,7 +830,21 @@
       <input type="text" id="libNewMuscle" placeholder="Muscle group (optional)" style="width:170px;padding:9px 12px;border-radius:10px;border:1px solid var(--soft);background:var(--dark);color:white;">
       <button class="btn-success" onclick="addToExerciseLibrary()">Add</button>
     </div>
-    <input type="text" id="libSearch" placeholder="Search exercises..." oninput="renderExerciseLibraryList()" style="width:100%;padding:9px 12px;border-radius:10px;border:1px solid var(--soft);background:var(--dark);color:white;margin-bottom:12px;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <input type="text" id="libSearch" placeholder="Search by name..." oninput="renderExerciseLibraryList()" style="flex:1;min-width:180px;padding:9px 12px;border-radius:10px;border:1px solid var(--soft);background:var(--dark);color:white;">
+      <select id="libFilterType" onchange="renderExerciseLibraryList()" style="padding:9px 12px;border-radius:10px;border:1px solid var(--soft);background:var(--dark);color:white;">
+        <option value="">All Types</option>
+        <option value="weight_training">Weight Training</option>
+        <option value="bodyweight">Bodyweight</option>
+        <option value="assisted_bodyweight">Assisted Bodyweight</option>
+        <option value="timed">Timed</option>
+        <option value="cardio">Cardio</option>
+        <option value="mobility">Mobility</option>
+      </select>
+      <select id="libFilterGroup" onchange="renderExerciseLibraryList()" style="padding:9px 12px;border-radius:10px;border:1px solid var(--soft);background:var(--dark);color:white;">
+        <option value="">All Groups</option>
+      </select>
+    </div>
     <div id="exerciseLibraryList"></div>
     <div class="modal-footer">
       <button onclick="closeExerciseLibrary()">Close</button>
@@ -860,6 +869,10 @@
 /* ============================================================
    EXISTING JS — preserved exactly, with minor fixes
    ============================================================ */
+
+var SUPABASE_URL = 'https://oaqaswtjtxoljirhcyxt.supabase.co';
+var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcWFzd3RqdHhvbGppcmhjeXh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTQ4NTcsImV4cCI6MjA5NDE5MDg1N30.Pr3vhcdxB0xNUVoloGdv2ASYf6kjZ3OVDjYdvNqllW4';
+var _sb = window.supabase ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON) : null;
 
 function showSection(id, btn) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -961,27 +974,271 @@ document.getElementById('sortSelect').addEventListener('change', function () {
 function genId() {
   return Math.random().toString(36).slice(2, 9) + Date.now().toString(36);
 }
-function todayDateStr() {
-  const d = new Date();
+function _dateToLocalStr(d) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
+function todayDateStr() {
+  return _dateToLocalStr(new Date());
+}
 function getGoals()    { return JSON.parse(localStorage.getItem(_k('ft_goals')) || '{}'); }
-function saveGoals(d)  { localStorage.setItem(_k('ft_goals'), JSON.stringify(d)); }
+function saveGoals(d)  { localStorage.setItem(_k('ft_goals'), JSON.stringify(d)); _pushKeyToSupabase('ft_goals', d); }
 
 /* ---- Per-user storage namespace ---- */
 var ftSession = null; // set by initAuth()
 function _k(key) { return ftSession ? 'u_' + ftSession.userId + '_' + key : key; }
 
 function getFolders()    { return JSON.parse(localStorage.getItem(_k('ft_folders'))   || '[]'); }
-function saveFolders(d)  { localStorage.setItem(_k('ft_folders'),   JSON.stringify(d)); }
+function saveFolders(d)  { localStorage.setItem(_k('ft_folders'),   JSON.stringify(d)); _pushKeyToSupabase('ft_folders', d); }
 function getRoutines()   { return JSON.parse(localStorage.getItem(_k('ft_routines'))  || '[]'); }
-function saveRoutines(d) { localStorage.setItem(_k('ft_routines'),  JSON.stringify(d)); }
+function saveRoutines(d) { localStorage.setItem(_k('ft_routines'),  JSON.stringify(d)); _pushKeyToSupabase('ft_routines', d); }
 function getDailyLogs()  { return JSON.parse(localStorage.getItem(_k('ft_dailyLogs')) || '{}'); }
-function saveDailyLogs(d){ localStorage.setItem(_k('ft_dailyLogs'), JSON.stringify(d)); }
+function saveDailyLogs(d){ localStorage.setItem(_k('ft_dailyLogs'), JSON.stringify(d)); _pushKeyToSupabase('ft_dailyLogs', d); }
 function getDailyMeta()  { return JSON.parse(localStorage.getItem(_k('ft_dailyMeta')) || '{}'); }
-function saveDailyMeta(d){ localStorage.setItem(_k('ft_dailyMeta'), JSON.stringify(d)); }
+function saveDailyMeta(d){ localStorage.setItem(_k('ft_dailyMeta'), JSON.stringify(d)); _pushKeyToSupabase('ft_dailyMeta', d); }
 function getExercises()   { return JSON.parse(localStorage.getItem(_k('ft_exercises'))  || '[]'); }
-function saveExercises(d) { localStorage.setItem(_k('ft_exercises'),  JSON.stringify(d)); }
+function saveExercises(d) { localStorage.setItem(_k('ft_exercises'),  JSON.stringify(d)); _pushKeyToSupabase('ft_exercises', d); }
+
+function _dailyLogList(entry) {
+  if (!entry) return [];
+  return Array.isArray(entry) ? entry : [entry];
+}
+
+function _getDailyLogEntry(dateStr) {
+  return _dailyLogList(getDailyLogs()[dateStr]);
+}
+
+function _latestDailyLog(dateStr) {
+  var logs = _getDailyLogEntry(dateStr);
+  return logs.length ? logs[logs.length - 1] : null;
+}
+
+function _countCompletedSets(exercises) {
+  return (exercises || []).reduce(function(acc, ex) {
+    if (ex.type === 'cardio') return acc + (ex.completed ? 1 : 0);
+    return acc + (ex.sets || []).filter(function(s) { return s.completed; }).length;
+  }, 0);
+}
+
+/* ============================================================
+   SYNC
+   ============================================================ */
+
+var _syncOnline = navigator.onLine;
+var _pendingSync = new Set();
+var SYNC_KEYS = ['ft_folders','ft_routines','ft_dailyLogs','ft_dailyMeta','ft_exercises','ft_goals'];
+
+window.addEventListener('online', function() {
+  _syncOnline = true;
+  _pushAllPendingToSupabase();
+});
+window.addEventListener('offline', function() {
+  _syncOnline = false;
+  setSyncStatus('offline', 'Offline');
+});
+
+function setSyncStatus(state, text) {
+  var el = document.getElementById('syncStatus');
+  if (!el) return;
+  el.className = state;
+  el.textContent = text;
+  el.style.display = text ? 'inline-block' : 'none';
+}
+
+async function _pullAllFromSupabase() {
+  if (!ftSession || !_syncOnline || !_sb) return;
+  setSyncStatus('syncing', 'Syncing...');
+  try {
+    var result = await _sb.from('user_data').select('key,value').eq('user_id', ftSession.userId);
+    if (result.error) throw result.error;
+    (result.data || []).forEach(function(row) {
+      localStorage.setItem(_k(row.key), JSON.stringify(row.value));
+    });
+    if (!result.data.length) await _migrateLegacyData();
+    setSyncStatus('synced', 'Synced');
+    setTimeout(function(){ setSyncStatus('', ''); }, 3000);
+  } catch (e) {
+    setSyncStatus('offline', 'Sync failed - using local data');
+  }
+}
+
+async function _pushKeyToSupabase(shortKey, value) {
+  if (!ftSession || !_sb) return;
+  if (!_syncOnline) {
+    _pendingSync.add(shortKey);
+    return;
+  }
+  try {
+    var result = await _sb.from('user_data').upsert(
+      { user_id: ftSession.userId, key: shortKey, value: value, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id,key' }
+    );
+    if (result.error) throw result.error;
+  } catch (e) {
+    _pendingSync.add(shortKey);
+    setSyncStatus('error', 'Save failed - kept locally');
+  }
+}
+
+async function _pushAllPendingToSupabase() {
+  if (!_pendingSync.size || !_sb) return;
+  var keys = Array.from(_pendingSync);
+  _pendingSync.clear();
+  setSyncStatus('syncing', 'Syncing...');
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i];
+    var raw = localStorage.getItem(_k(k));
+    if (raw !== null) await _pushKeyToSupabase(k, JSON.parse(raw));
+  }
+  setSyncStatus('synced', 'Synced');
+  setTimeout(function(){ setSyncStatus('', ''); }, 3000);
+}
+
+async function _migrateLegacyData() {
+  var hasNew = SYNC_KEYS.some(function(k) { return localStorage.getItem(_k(k)) !== null; });
+  var oldUsers = JSON.parse(localStorage.getItem('ft_users') || '[]');
+  var legacyPrefix = (!hasNew && oldUsers.length === 1) ? ('u_' + oldUsers[0].id + '_') : null;
+  var hasAny = hasNew || legacyPrefix;
+  if (!hasAny) return;
+  setSyncStatus('syncing', 'Migrating data...');
+  for (var i = 0; i < SYNC_KEYS.length; i++) {
+    var k = SYNC_KEYS[i];
+    var raw = hasNew ? localStorage.getItem(_k(k)) : localStorage.getItem(legacyPrefix + k);
+    if (raw) {
+      localStorage.setItem(_k(k), raw);
+      await _pushKeyToSupabase(k, JSON.parse(raw));
+    }
+  }
+  setSyncStatus('synced', 'Data migrated');
+  setTimeout(function(){ setSyncStatus('', ''); }, 3000);
+}
+
+function refreshOverviewStats() {
+  var meta = getDailyMeta();
+  var dates = Object.keys(meta).sort().reverse();
+  var latest = { weight: null, bodyFat: null, protein: null, calories: null };
+  for (var i = 0; i < dates.length; i++) {
+    var m = meta[dates[i]] || {};
+    if (latest.weight === null && m.bodyWeight != null) latest.weight = m.bodyWeight + ' kg';
+    if (latest.bodyFat === null && m.bodyFat != null) latest.bodyFat = m.bodyFat + '%';
+    if (latest.protein === null && m.protein != null) latest.protein = m.protein + ' g';
+    if (latest.calories === null && m.calories != null) latest.calories = m.calories + ' kcal';
+    if (latest.weight && latest.bodyFat && latest.protein && latest.calories) break;
+  }
+  [
+    ['Weight', latest.weight],
+    ['BodyFat', latest.bodyFat],
+    ['Protein', latest.protein],
+    ['Calories', latest.calories]
+  ].forEach(function(pair) {
+    var textEl = document.getElementById('headerStat' + pair[0]);
+    var cardEl = document.getElementById('statCard' + pair[0]);
+    if (!textEl || !cardEl) return;
+    textEl.textContent = pair[1] || '--';
+    cardEl.classList.toggle('empty', !pair[1]);
+  });
+}
+
+function bindDatePickers() {
+  document.querySelectorAll('input[type="date"]').forEach(function(el) {
+    ['focus', 'click'].forEach(function(evt) {
+      el.addEventListener(evt, function() {
+        if (typeof el.showPicker === 'function') {
+          try { el.showPicker(); } catch (e) {}
+        }
+      });
+    });
+  });
+}
+
+var EXERCISE_LIBRARY_DEFAULTS = [
+  { name: 'Arm Circles', type: 'mobility', muscleGroup: 'Warmup' },
+  { name: 'Shoulder Rotations', type: 'mobility', muscleGroup: 'Warmup' },
+  { name: 'Wrist Rotations', type: 'mobility', muscleGroup: 'Warmup' },
+  { name: 'Jumping Jacks', type: 'bodyweight', muscleGroup: 'Warmup' },
+  { name: 'Cat Cow Stretch', type: 'mobility', muscleGroup: 'Warmup' },
+  { name: 'Plank Hold', type: 'timed', muscleGroup: 'Pushup Progression' },
+  { name: 'Scapula Pushups', type: 'bodyweight', muscleGroup: 'Pushup Progression' },
+  { name: 'Negative Pushups', type: 'bodyweight', muscleGroup: 'Pushup Progression' },
+  { name: 'Incline Pushups', type: 'bodyweight', muscleGroup: 'Pushup Progression' },
+  { name: 'Knee Pushups', type: 'bodyweight', muscleGroup: 'Pushup Progression' },
+  { name: 'Dead Hang', type: 'timed', muscleGroup: 'Pullup Progression' },
+  { name: 'Scapula Pullups', type: 'bodyweight', muscleGroup: 'Pullup Progression' },
+  { name: 'Band Pulldowns', type: 'assisted_bodyweight', muscleGroup: 'Pullup Progression' },
+  { name: 'Australian Rows', type: 'bodyweight', muscleGroup: 'Pullup Progression' },
+  { name: 'Negative Pullups', type: 'bodyweight', muscleGroup: 'Pullup Progression' },
+  { name: 'Plank', type: 'timed', muscleGroup: 'Core' },
+  { name: 'Leg Raises', type: 'bodyweight', muscleGroup: 'Core' }
+];
+
+function ensureDefaultExerciseLibrary() {
+  var exs = getExercises();
+  var names = {};
+  exs.forEach(function(e) { names[(e.name || '').trim().toLowerCase()] = true; });
+  var changed = false;
+  EXERCISE_LIBRARY_DEFAULTS.forEach(function(ex) {
+    var key = ex.name.toLowerCase();
+    if (names[key]) return;
+    exs.push({
+      id: genId(),
+      name: ex.name,
+      type: ex.type,
+      muscleGroup: ex.muscleGroup
+    });
+    names[key] = true;
+    changed = true;
+  });
+  if (changed) saveExercises(exs);
+}
+
+var progressRange = { start: null, end: null };
+
+function setProgressRangeDays(days) {
+  var end = new Date();
+  var start = new Date();
+  start.setDate(end.getDate() - (days - 1));
+  progressRange.start = _dateToLocalStr(start);
+  progressRange.end = _dateToLocalStr(end);
+  var startEl = document.getElementById('progressStartDate');
+  var endEl = document.getElementById('progressEndDate');
+  if (startEl) startEl.value = progressRange.start;
+  if (endEl) endEl.value = progressRange.end;
+  renderProgressPage();
+}
+
+function progressRangeChanged() {
+  var startEl = document.getElementById('progressStartDate');
+  var endEl = document.getElementById('progressEndDate');
+  if (!startEl || !endEl) return;
+  var start = startEl.value;
+  var end = endEl.value;
+  if (!start || !end) return;
+  if (start > end) {
+    var tmp = start;
+    start = end;
+    end = tmp;
+    startEl.value = start;
+    endEl.value = end;
+  }
+  progressRange.start = start;
+  progressRange.end = end;
+  renderProgressPage();
+}
+
+function getProgressRange() {
+  if (!progressRange.start || !progressRange.end) setProgressRangeDays(30);
+  return { start: progressRange.start, end: progressRange.end };
+}
+
+function getDateRangeDays(start, end) {
+  var days = [];
+  var cur = new Date(start + 'T00:00:00');
+  var endDate = new Date(end + 'T00:00:00');
+  while (cur <= endDate) {
+    days.push(_dateToLocalStr(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return days;
+}
 
 /* ============================================================
    DAILY TRACKER
@@ -1016,14 +1273,14 @@ function loadTrackerForDate(dateStr) {
   if (!dateStr) return;
   trackerCurrentDate = dateStr;
   var meta = getDailyMeta()[dateStr] || {};
-  var log  = getDailyLogs()[dateStr]  || {};
+  var logs = _getDailyLogEntry(dateStr);
 
   // Planned routines
   trackerPlannedRoutines = (meta.plannedRoutines || []).slice();
   renderTrackerRoutineList();
 
   // Logged workout from session
-  renderTrackerLoggedWorkout(log);
+  renderTrackerLoggedWorkout(logs);
 
   // Vitals
   document.getElementById('trackerCalories').value = meta.calories   != null ? meta.calories   : '';
@@ -1060,15 +1317,14 @@ function removeTrackerRoutine(routineId) {
 
 function renderTrackerRoutineList() {
   var container = document.getElementById('trackerRoutineList');
-  var logs = getDailyLogs();
-  var log  = logs[trackerCurrentDate] || {};
+  var logs = _getDailyLogEntry(trackerCurrentDate);
 
   if (!trackerPlannedRoutines.length) {
     container.innerHTML = '<div class="small" style="color:var(--muted);padding:4px 0">No routines planned. Add one above.</div>';
     return;
   }
   container.innerHTML = trackerPlannedRoutines.map(function(r) {
-    var isLogged = log.routineId === r.id;
+    var isLogged = logs.some(function(log) { return log.routineId === r.id && log.status === 'completed'; });
     var statusLabel = isLogged ? '<span class="chip-status" style="background:rgba(34,197,94,.15);color:var(--green)">✓ Logged</span>' : '';
     return '<div class="tracker-routine-chip">' +
       '<div style="display:flex;align-items:center;gap:10px">' +
@@ -1080,23 +1336,19 @@ function renderTrackerRoutineList() {
   }).join('');
 }
 
-function renderTrackerLoggedWorkout(log) {
+function renderTrackerLoggedWorkout(logs) {
   var section = document.getElementById('trackerLoggedWorkout');
   var content = document.getElementById('trackerLoggedWorkoutContent');
-  if (!log || !log.status) { section.style.display = 'none'; return; }
+  if (!logs.length) { section.style.display = 'none'; return; }
 
-  var durationMin = 0;
-  if (log.startTime && log.endTime) {
-    durationMin = Math.round((new Date(log.endTime) - new Date(log.startTime)) / 60000);
-  }
-  var totalSets = (log.exercises || []).reduce(function(acc, ex) {
-    if (ex.type === 'cardio') return acc + (ex.completed ? 1 : 0);
-    return acc + (ex.sets || []).filter(function(s){ return s.completed; }).length;
-  }, 0);
-  var statusColor = { completed: 'var(--green)', in_progress: 'var(--yellow)', skipped: 'var(--red)' }[log.status] || 'var(--muted)';
-
-  content.innerHTML =
-    '<div style="background:var(--dark);border-radius:12px;padding:14px;border:1px solid var(--soft)">' +
+  content.innerHTML = logs.map(function(log, idx) {
+    var durationMin = 0;
+    if (log.startTime && log.endTime) {
+      durationMin = Math.round((new Date(log.endTime) - new Date(log.startTime)) / 60000);
+    }
+    var totalSets = _countCompletedSets(log.exercises);
+    var statusColor = { completed: 'var(--green)', in_progress: 'var(--yellow)', skipped: 'var(--red)' }[log.status] || 'var(--muted)';
+    return '<div style="background:var(--dark);border-radius:12px;padding:14px;border:1px solid var(--soft);' + (idx ? 'margin-top:10px' : '') + '">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
         '<strong>' + escH(log.routineName || 'Workout') + '</strong>' +
         '<span style="color:' + statusColor + ';font-weight:bold;text-transform:capitalize">' + (log.status || '') + '</span>' +
@@ -1107,6 +1359,7 @@ function renderTrackerLoggedWorkout(log) {
         (log.exercises && log.exercises.length ? '<span>💪 ' + log.exercises.length + ' exercises</span>' : '') +
       '</div>' +
     '</div>';
+  }).join('');
   section.style.display = 'block';
 }
 
@@ -1131,6 +1384,9 @@ function saveTrackerData() {
     notes:       document.getElementById('trackerNotes').value
   });
   saveDailyMeta(meta);
+  refreshOverviewStats();
+  renderProgressPage();
+  renderCalendar();
 
   var btn = document.getElementById('trackerSaveBtn');
   btn.textContent = 'Saved!';
@@ -1429,7 +1685,7 @@ function saveRoutineEdits() {
    WORKOUT SESSION
    ============================================================ */
 
-var sessionState = { step: 1, date: null, routineId: null, startTime: null, timerInterval: null, activeExercises: [] };
+var sessionState = { step: 1, date: null, routineId: null, logId: null, startTime: null, timerInterval: null, activeExercises: [] };
 
 function initWorkoutSession() {
   if (sessionState.timerInterval) {
@@ -1555,7 +1811,9 @@ function startEmptyWorkout() {
 
 function _writeSessionLog(routineId, routineName) {
   var logs = getDailyLogs();
-  logs[sessionState.date] = {
+  var dayLogs = _dailyLogList(logs[sessionState.date]);
+  var logEntry = {
+    id:          genId(),
     date:        sessionState.date,
     routineId:   routineId,
     routineName: routineName,
@@ -1563,7 +1821,10 @@ function _writeSessionLog(routineId, routineName) {
     startTime:   new Date().toISOString(),
     exercises:   sessionState.activeExercises
   };
+  dayLogs.push(logEntry);
+  logs[sessionState.date] = dayLogs;
   saveDailyLogs(logs);
+  sessionState.logId = logEntry.id;
 }
 
 function startSessionTimer() {
@@ -1741,17 +2002,23 @@ function finishWorkout() {
   sessionState.timerInterval = null;
   var logs = getDailyLogs();
   var dateStr = sessionState.date;
-  if (!logs[dateStr]) logs[dateStr] = { date: dateStr };
-  logs[dateStr].status    = 'completed';
-  logs[dateStr].endTime   = new Date().toISOString();
-  logs[dateStr].exercises = sessionState.activeExercises;
+  var dayLogs = _dailyLogList(logs[dateStr]);
+  var log = dayLogs.find(function(item) { return item.id === sessionState.logId; }) || dayLogs[dayLogs.length - 1];
+  if (!log) return;
+  log.status = 'completed';
+  log.endTime = new Date().toISOString();
+  log.exercises = sessionState.activeExercises;
+  logs[dateStr] = dayLogs;
   saveDailyLogs(logs);
+  renderProgressPage();
+  renderCalendar();
   sessionGoStep(5);
 }
 
 function renderSessionSummary() {
   var logs = getDailyLogs();
-  var log  = logs[sessionState.date];
+  var dayLogs = _dailyLogList(logs[sessionState.date]);
+  var log  = dayLogs.find(function(item) { return item.id === sessionState.logId; }) || dayLogs[dayLogs.length - 1];
   var container = document.getElementById('sessionSummaryContent');
   if (!log) { container.innerHTML = '<div class="empty-state">No workout data.</div>'; return; }
 
@@ -1783,17 +2050,20 @@ function discardWorkout() {
   sessionState.timerInterval = null;
   // Remove the in_progress log
   var logs = getDailyLogs();
-  if (logs[sessionState.date] && logs[sessionState.date].status === 'in_progress') {
-    delete logs[sessionState.date];
+  var dayLogs = _dailyLogList(logs[sessionState.date]);
+  if (dayLogs.length) {
+    dayLogs = dayLogs.filter(function(item) { return item.id !== sessionState.logId; });
+    if (dayLogs.length) logs[sessionState.date] = dayLogs;
+    else delete logs[sessionState.date];
     saveDailyLogs(logs);
   }
-  sessionState = { step: 1, date: null, routineId: null, startTime: null, timerInterval: null, activeExercises: [] };
+  sessionState = { step: 1, date: null, routineId: null, logId: null, startTime: null, timerInterval: null, activeExercises: [] };
   sessionGoStep(1);
 }
 
 function sessionReset() {
   if (sessionState.timerInterval) clearInterval(sessionState.timerInterval);
-  sessionState = { step: 1, date: null, routineId: null, startTime: null, timerInterval: null, activeExercises: [] };
+  sessionState = { step: 1, date: null, routineId: null, logId: null, startTime: null, timerInterval: null, activeExercises: [] };
   sessionGoStep(1);
 }
 
@@ -1922,11 +2192,11 @@ function renderCalendar() {
 
 function getCalendarDayClass(dateStr, logs, meta, today) {
   var m = meta[dateStr];
-  var l = logs[dateStr];
+  var dayLogs = _dailyLogList(logs[dateStr]);
   if (m && m.isRestDay) return ['cal-blue'];
-  if (l) {
-    if (l.status === 'completed')   return ['cal-green'];
-    if (l.status === 'in_progress') return ['cal-yellow'];
+  if (dayLogs.length) {
+    if (dayLogs.some(function(l) { return l.status === 'in_progress'; })) return ['cal-yellow'];
+    if (dayLogs.some(function(l) { return l.status === 'completed'; })) return ['cal-green'];
   }
   if (dateStr < today) return ['cal-red'];
   return [];
@@ -1998,6 +2268,9 @@ function openExerciseLibrary() {
   document.getElementById('libNewName').value   = '';
   document.getElementById('libNewMuscle').value = '';
   document.getElementById('libSearch').value    = '';
+  document.getElementById('libFilterType').value = '';
+  populateExerciseLibraryGroupFilter();
+  document.getElementById('libFilterGroup').value = '';
   renderExerciseLibraryList();
   document.getElementById('exerciseLibraryModal').classList.add('open');
   setTimeout(function() { document.getElementById('libNewName').focus(); }, 50);
@@ -2016,23 +2289,42 @@ function addToExerciseLibrary() {
   saveExercises(exs);
   document.getElementById('libNewName').value   = '';
   document.getElementById('libNewMuscle').value = '';
+  populateExerciseLibraryGroupFilter();
   renderExerciseLibraryList();
 }
 
 function deleteFromLibrary(id) {
   if (!confirm('Remove this exercise from the library?')) return;
   saveExercises(getExercises().filter(function(e) { return e.id !== id; }));
+  populateExerciseLibraryGroupFilter();
   renderExerciseLibraryList();
+}
+
+function populateExerciseLibraryGroupFilter() {
+  var sel = document.getElementById('libFilterGroup');
+  if (!sel) return;
+  var current = sel.value;
+  var groups = getExercises().map(function(e) { return (e.muscleGroup || '').trim(); }).filter(Boolean);
+  groups = Array.from(new Set(groups)).sort(function(a, b) { return a.localeCompare(b); });
+  sel.innerHTML = '<option value="">All Groups</option>' + groups.map(function(g) {
+    return '<option value="' + escH(g) + '">' + escH(g) + '</option>';
+  }).join('');
+  if (groups.indexOf(current) !== -1) sel.value = current;
 }
 
 function renderExerciseLibraryList() {
   var query = (document.getElementById('libSearch').value || '').toLowerCase();
+  var typeFilter = document.getElementById('libFilterType').value || '';
+  var groupFilter = document.getElementById('libFilterGroup').value || '';
   var exs   = getExercises().filter(function(e) {
-    return !query || e.name.toLowerCase().includes(query) || (e.muscleGroup || '').toLowerCase().includes(query);
+    var nameMatch = !query || e.name.toLowerCase().includes(query) || (e.muscleGroup || '').toLowerCase().includes(query);
+    var typeMatch = !typeFilter || e.type === typeFilter;
+    var groupMatch = !groupFilter || (e.muscleGroup || '') === groupFilter;
+    return nameMatch && typeMatch && groupMatch;
   });
   var container = document.getElementById('exerciseLibraryList');
   if (!exs.length) {
-    container.innerHTML = '<div class="empty-state">' + (query ? 'No matches.' : 'Library is empty. Add exercises above.') + '</div>';
+    container.innerHTML = '<div class="empty-state">' + ((query || typeFilter || groupFilter) ? 'No matches.' : 'Library is empty. Add exercises above.') + '</div>';
     return;
   }
   container.innerHTML = exs.map(function(e) {
@@ -2075,13 +2367,20 @@ function renderExercisePickerList() {
   }
   container.innerHTML = exs.map(function(e) {
     var typeLabel = e.type.replace(/_/g, ' ');
-    return '<div class="lib-picker-item" onclick="pickExerciseFromLibrary(\'' + e.id + '\')">' +
+    var alreadyAdded = _editorExercises.some(function(ex) {
+      return (ex.sourceLibId && ex.sourceLibId === e.id) ||
+        ((ex.name || '').trim().toLowerCase() === e.name.toLowerCase() && ex.type === e.type);
+    });
+    return '<div class="lib-picker-item" ' +
+      (alreadyAdded
+        ? 'style="opacity:.6;border-color:var(--green);background:rgba(34,197,94,.08);cursor:not-allowed"'
+        : 'onclick="pickExerciseFromLibrary(\'' + e.id + '\')"') + '>' +
       '<div>' +
         '<strong>' + escH(e.name) + '</strong>' +
         '<span class="small" style="margin-left:8px;color:var(--muted)">' + typeLabel +
           (e.muscleGroup ? ' · ' + escH(e.muscleGroup) : '') + '</span>' +
       '</div>' +
-      '<span style="color:var(--green);font-size:18px;line-height:1">＋</span>' +
+      '<span style="color:var(--green);font-size:14px;line-height:1;font-weight:bold">' + (alreadyAdded ? 'Added' : '＋') + '</span>' +
     '</div>';
   }).join('');
 }
@@ -2089,8 +2388,14 @@ function renderExercisePickerList() {
 function pickExerciseFromLibrary(libId) {
   var ex = getExercises().find(function(e) { return e.id === libId; });
   if (!ex) return;
+  var exists = _editorExercises.some(function(item) {
+    return (item.sourceLibId && item.sourceLibId === libId) ||
+      ((item.name || '').trim().toLowerCase() === ex.name.toLowerCase() && item.type === ex.type);
+  });
+  if (exists) return;
   var newEx = {
     id:          genId(),
+    sourceLibId: ex.id,
     name:        ex.name,
     type:        ex.type,
     muscleGroup: ex.muscleGroup || '',
@@ -2101,6 +2406,7 @@ function pickExerciseFromLibrary(libId) {
   };
   _editorExercises.push(newEx);
   renderRoutineEditor();
+  renderExercisePickerList();
   // Flash feedback
   var btn = document.querySelector('#exercisePickerModal .btn-success');
   // Scroll the editor list to bottom after adding
@@ -2113,73 +2419,16 @@ function pickExerciseFromLibrary(libId) {
    ============================================================ */
 
 function renderProgressPage() {
-  renderGoalsProgress();
+  refreshOverviewStats();
+  var range = getProgressRange();
+  var startEl = document.getElementById('progressStartDate');
+  var endEl = document.getElementById('progressEndDate');
+  if (startEl && !startEl.value) startEl.value = range.start;
+  if (endEl && !endEl.value) endEl.value = range.end;
   renderConsistency();
   renderWorkoutHistory();
   renderBodyMetrics();
   renderNutritionAverages();
-}
-
-function renderGoalsProgress() {
-  var el = document.getElementById('progressGoals');
-  if (!el) return;
-  var goals = getGoals();
-  var hasAnyGoal = goals.targetWeight != null || goals.targetBodyFat != null;
-  if (!hasAnyGoal) {
-    el.innerHTML = '<div style="background:var(--dark);border:1px solid var(--soft);border-radius:12px;padding:16px;color:var(--muted);font-size:14px">' +
-      'No goals set yet. Go to <strong style="color:var(--yellow)">Settings → Goals &amp; Targets</strong> to set your targets.' +
-      '</div>';
-    return;
-  }
-
-  // Find latest logged weight and body fat (most recent non-null)
-  var meta = getDailyMeta();
-  var sortedDates = Object.keys(meta).sort().reverse();
-  var latestWeight = null, latestBodyFat = null;
-  for (var i = 0; i < sortedDates.length; i++) {
-    var m = meta[sortedDates[i]];
-    if (latestWeight  === null && m.bodyWeight != null) latestWeight  = m.bodyWeight;
-    if (latestBodyFat === null && m.bodyFat    != null) latestBodyFat = m.bodyFat;
-    if (latestWeight !== null && latestBodyFat !== null) break;
-  }
-
-  function _goalCard(label, current, target, unit, lowerIsBetter) {
-    if (target == null) return '';
-    var hasData = current !== null;
-    var pct = hasData ? Math.min(100, Math.round((current / target) * 100)) : 0;
-    // For weight/body fat: lower is better — full bar = at or below target
-    var barPct = lowerIsBetter
-      ? (hasData ? Math.min(100, Math.max(0, Math.round(((target * 2 - current) / target) * 50))) : 0)
-      : pct;
-    var color = !hasData ? 'var(--muted)'
-      : lowerIsBetter
-        ? (current <= target ? 'var(--green)' : current <= target * 1.1 ? 'var(--yellow)' : 'var(--red)')
-        : (pct >= 90 ? 'var(--green)' : pct >= 70 ? 'var(--yellow)' : 'var(--red)');
-    return '<div style="background:var(--dark);border:1px solid var(--soft);border-radius:12px;padding:16px;flex:1;min-width:160px">' +
-      '<div style="font-size:12px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">' + label + '</div>' +
-      '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:8px">' +
-        '<span style="font-size:26px;font-weight:700;color:' + color + '">' + (hasData ? current + ' ' + unit : '—') + '</span>' +
-        '<span style="font-size:13px;color:var(--muted)">/ ' + target + ' ' + unit + '</span>' +
-      '</div>' +
-      '<div style="background:var(--soft);border-radius:999px;height:6px;overflow:hidden">' +
-        '<div style="height:100%;width:' + barPct + '%;background:' + color + ';border-radius:999px;transition:.3s"></div>' +
-      '</div>' +
-      '<div style="font-size:11px;color:var(--muted);margin-top:5px">' +
-        (hasData
-          ? (lowerIsBetter
-              ? (current <= target ? 'Goal reached!' : (current - target).toFixed(1) + ' ' + unit + ' above target')
-              : pct + '% of goal')
-          : 'No data logged yet') +
-      '</div>' +
-    '</div>';
-  }
-
-  el.innerHTML =
-    '<h3 style="margin-bottom:12px">Goals</h3>' +
-    '<div style="display:flex;flex-wrap:wrap;gap:12px">' +
-      _goalCard('Weight',   latestWeight,  goals.targetWeight,  'kg', true) +
-      _goalCard('Body Fat', latestBodyFat, goals.targetBodyFat, '%',  true) +
-    '</div>';
 }
 
 function renderConsistency() {
@@ -2187,64 +2436,102 @@ function renderConsistency() {
   if (!el) return;
   var logs = getDailyLogs();
   var meta = getDailyMeta();
-  var today = new Date();
-  var completed = 0, restDays = 0, activeDays = 0;
-  var last30 = [];
-  for (var i = 29; i >= 0; i--) {
-    var d = new Date(today);
-    d.setDate(today.getDate() - i);
-    var ds = d.toISOString().slice(0, 10);
-    var log = logs[ds] || {};
+  var range = getProgressRange();
+  var days = getDateRangeDays(range.start, range.end);
+  var todayStr = todayDateStr();
+  var completed = 0, completedDays = 0, restDays = 0, activeDays = 0, missed = 0, future = 0;
+  var streak = 0;
+  var inBreak = false;
+  var items = [];
+  for (var i = 0; i < days.length; i++) {
+    var ds = days[i];
+    var dayLogs = _dailyLogList(logs[ds]);
     var m   = meta[ds] || {};
-    var isCompleted = log.status === 'completed';
+    var isCompleted = dayLogs.some(function(log) { return log.status === 'completed'; });
+    var completedCount = dayLogs.filter(function(log) { return log.status === 'completed'; }).length;
     var isRest      = !!m.isRestDay;
-    var isPast      = ds < todayDateStr();
-    if (isCompleted) completed++;
+    var isPast      = ds < todayStr;
+    var isFuture    = ds > todayStr;
+    completed += completedCount;
+    if (isCompleted) completedDays++;
     if (isRest) restDays++;
     if (isCompleted || isRest) activeDays++;
-    last30.push({ ds: ds, isCompleted: isCompleted, isRest: isRest, isPast: isPast, isToday: ds === todayDateStr() });
+    if (!isCompleted && !isRest && isPast) missed++;
+    if (isFuture) future++;
+    items.push({ ds: ds, isCompleted: isCompleted, isRest: isRest, isPast: isPast, isFuture: isFuture, isToday: ds === todayStr });
   }
-  var streak = 0;
-  for (var j = last30.length - 1; j >= 0; j--) {
-    var day = last30[j];
-    if (day.isCompleted || day.isRest) streak++;
-    else if (day.isPast || day.isToday) break;
+  for (var j = items.length - 1; j >= 0; j--) {
+    var day = items[j];
+    if (day.isFuture) continue;
+    if (day.isCompleted || day.isRest) {
+      if (!inBreak) streak++;
+    } else {
+      inBreak = true;
+    }
   }
-  var dotsHTML = last30.map(function(day) {
-    var cls = day.isCompleted ? 'cal-green' : day.isRest ? 'cal-blue' : day.isPast ? 'cal-red' : '';
-    return '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;margin:2px;background:' +
-      (day.isCompleted ? 'var(--green)' : day.isRest ? 'var(--blue)' : day.isPast ? 'var(--red)' : 'var(--soft)') +
-      ';' + (day.isToday ? 'outline:2px solid var(--yellow);outline-offset:2px;' : '') + '" title="' + escH(day.ds) + '"></span>';
-  }).join('');
+  var totalDays = days.length || 1;
+  var pct = function(v) { return (v / totalDays * 100).toFixed(2); };
+  var donePct = Math.round(activeDays / totalDays * 100);
+  var a = pct(completedDays);
+  var b = (completedDays + restDays) / totalDays * 100;
+  var c = (completedDays + restDays + missed) / totalDays * 100;
+  var donutBg = 'conic-gradient(' +
+    'var(--green) 0% ' + a + '%,' +
+    'var(--blue) ' + a + '% ' + b.toFixed(2) + '%,' +
+    'var(--red) ' + b.toFixed(2) + '% ' + c.toFixed(2) + '%,' +
+    'var(--soft) ' + c.toFixed(2) + '% 100%)';
+  var vizHTML =
+    '<div class="consistency-viz">' +
+      '<div class="consistency-donut" style="background:' + donutBg + '">' +
+        '<div class="consistency-donut-center"><strong>' + donePct + '%</strong><span>kept plan</span></div>' +
+      '</div>' +
+      '<div>' +
+        '<div class="consistency-legend">' +
+          '<div class="consistency-legend-item"><strong style="color:var(--green)">' + completed + '</strong><span>Completed</span></div>' +
+          '<div class="consistency-legend-item"><strong style="color:var(--blue)">' + restDays + '</strong><span>Rest</span></div>' +
+          '<div class="consistency-legend-item"><strong style="color:var(--red)">' + missed + '</strong><span>Missed</span></div>' +
+          '<div class="consistency-legend-item"><strong style="color:var(--muted)">' + future + '</strong><span>Future</span></div>' +
+        '</div>' +
+        '<div class="small" style="color:var(--muted)">Selected range: ' + escH(range.start) + ' to ' + escH(range.end) + '</div>' +
+      '</div>' +
+    '</div>';
   el.innerHTML =
     '<div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:12px;">' +
-      '<div style="text-align:center"><div style="font-size:28px;font-weight:700;color:var(--green)">' + completed + '</div><div style="font-size:12px;color:var(--muted)">Workouts<br>(30d)</div></div>' +
-      '<div style="text-align:center"><div style="font-size:28px;font-weight:700;color:var(--blue)">' + restDays + '</div><div style="font-size:12px;color:var(--muted)">Rest Days<br>(30d)</div></div>' +
+      '<div style="text-align:center"><div style="font-size:28px;font-weight:700;color:var(--green)">' + completed + '</div><div style="font-size:12px;color:var(--muted)">Workouts<br>(' + totalDays + 'd)</div></div>' +
+      '<div style="text-align:center"><div style="font-size:28px;font-weight:700;color:var(--blue)">' + restDays + '</div><div style="font-size:12px;color:var(--muted)">Rest Days<br>(' + totalDays + 'd)</div></div>' +
+      '<div style="text-align:center"><div style="font-size:28px;font-weight:700;color:var(--red)">' + missed + '</div><div style="font-size:12px;color:var(--muted)">Missed<br>(' + totalDays + 'd)</div></div>' +
       '<div style="text-align:center"><div style="font-size:28px;font-weight:700;color:var(--yellow)">' + streak + '</div><div style="font-size:12px;color:var(--muted)">Current<br>Streak</div></div>' +
-      '<div style="text-align:center"><div style="font-size:28px;font-weight:700;color:var(--text)">' + Math.round(activeDays / 30 * 100) + '%</div><div style="font-size:12px;color:var(--muted)">Consistency<br>(30d)</div></div>' +
+      '<div style="text-align:center"><div style="font-size:28px;font-weight:700;color:var(--text)">' + Math.round(activeDays / totalDays * 100) + '%</div><div style="font-size:12px;color:var(--muted)">Consistency<br>(' + totalDays + 'd)</div></div>' +
     '</div>' +
-    '<div style="line-height:1">' + dotsHTML + '</div>' +
-    '<div style="margin-top:6px;font-size:11px;color:var(--muted)">&#9679; Completed &nbsp; &#9679; Rest &nbsp; &#9679; Missed &nbsp; &#9675; Future</div>';
+    vizHTML +
+    '<div style="margin-top:8px;font-size:11px;color:var(--muted)">Green = completed workouts, blue = rest days, red = missed days, gray = future days.</div>';
 }
 
 function renderWorkoutHistory() {
   var el = document.getElementById('progressWorkoutHistory');
   if (!el) return;
   var logs = getDailyLogs();
-  var dates = Object.keys(logs).sort().reverse().slice(0, 20);
-  if (!dates.length) { el.innerHTML = '<div class="empty-state">No workouts logged yet.</div>'; return; }
-  var rows = dates.map(function(ds) {
-    var log = logs[ds];
+  var range = getProgressRange();
+  var entries = [];
+  Object.keys(logs).filter(function(ds) {
+    return ds >= range.start && ds <= range.end;
+  }).sort().reverse().forEach(function(ds) {
+    _dailyLogList(logs[ds]).forEach(function(log, idx) {
+      entries.push({ ds: ds, log: log, idx: idx });
+    });
+  });
+  entries = entries.slice(0, 50);
+  if (!entries.length) { el.innerHTML = '<div class="empty-state">No workouts logged yet.</div>'; return; }
+  var rows = entries.map(function(entry) {
+    var ds = entry.ds;
+    var log = entry.log;
     var dur = '';
     if (log.startTime && log.endTime) {
       var mins = Math.round((new Date(log.endTime) - new Date(log.startTime)) / 60000);
       if (!isNaN(mins) && mins >= 0) dur = mins + ' min';
     }
     var exCount = (log.exercises || []).length;
-    var setsDone = 0;
-    (log.exercises || []).forEach(function(ex) {
-      (ex.sets || []).forEach(function(s) { if (s.completed) setsDone++; });
-    });
+    var setsDone = _countCompletedSets(log.exercises);
     var statusColor = log.status === 'completed' ? 'var(--green)' : log.status === 'in_progress' ? 'var(--yellow)' : 'var(--muted)';
     return '<tr>' +
       '<td>' + escH(ds) + '</td>' +
@@ -2253,7 +2540,7 @@ function renderWorkoutHistory() {
       '<td>' + escH(dur || '—') + '</td>' +
       '<td>' + exCount + ' ex / ' + setsDone + ' sets</td>' +
       '<td><button class="btn-sm" style="background:var(--red);color:#fff;padding:3px 10px;font-size:12px" ' +
-        'onclick="deleteWorkoutLog(\'' + escH(ds) + '\')" title="Delete this workout log">Delete</button></td>' +
+        'onclick="deleteWorkoutLog(\'' + escH(ds) + '\',\'' + escH(log.id || '') + '\')" title="Delete this workout log">Delete</button></td>' +
       '</tr>';
   }).join('');
   el.innerHTML = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">' +
@@ -2269,17 +2556,22 @@ function renderWorkoutHistory() {
   });
 }
 
-function deleteWorkoutLog(dateStr) {
+function deleteWorkoutLog(dateStr, logId) {
   var msg = 'Delete the workout log for ' + dateStr + '?\n\nAlso delete daily tracker data (vitals, macros, notes) for this day?';
   var also = confirm(msg);
   var logs = getDailyLogs();
-  delete logs[dateStr];
+  var dayLogs = _dailyLogList(logs[dateStr]);
+  if (logId) dayLogs = dayLogs.filter(function(log) { return log.id !== logId; });
+  else dayLogs = [];
+  if (dayLogs.length) logs[dateStr] = dayLogs;
+  else delete logs[dateStr];
   saveDailyLogs(logs);
   if (also) {
     var meta = getDailyMeta();
     delete meta[dateStr];
     saveDailyMeta(meta);
   }
+  refreshOverviewStats();
   renderProgressPage();
   renderCalendar();
 }
@@ -2288,7 +2580,10 @@ function renderBodyMetrics() {
   var el = document.getElementById('progressBodyMetrics');
   if (!el) return;
   var meta = getDailyMeta();
-  var dates = Object.keys(meta).sort().reverse().slice(0, 30);
+  var range = getProgressRange();
+  var dates = Object.keys(meta).filter(function(ds) {
+    return ds >= range.start && ds <= range.end;
+  }).sort().reverse();
   var filtered = dates.filter(function(ds) {
     var m = meta[ds];
     return m.bodyWeight || m.bodyFat || m.pushupsMax || m.pullupsMax;
@@ -2321,11 +2616,9 @@ function renderNutritionAverages() {
   var el = document.getElementById('progressNutrition');
   if (!el) return;
   var meta = getDailyMeta();
-  var today = new Date();
+  var range = getProgressRange();
   var days = [], cals = [], prots = [], carbs = [], fats = [], waters = [];
-  for (var i = 13; i >= 0; i--) {
-    var d = new Date(today); d.setDate(today.getDate() - i);
-    var ds = d.toISOString().slice(0, 10);
+  getDateRangeDays(range.start, range.end).forEach(function(ds) {
     var m = meta[ds];
     if (m && (m.calories || m.protein || m.carbs || m.fat || m.water)) {
       days.push(ds);
@@ -2335,7 +2628,7 @@ function renderNutritionAverages() {
       fats.push(numOrNull(m.fat));
       waters.push(numOrNull(m.water));
     }
-  }
+  });
   if (!days.length) { el.innerHTML = '<div class="empty-state">No nutrition data logged yet.</div>'; return; }
   function avg(arr) {
     var vals = arr.filter(function(v) { return v !== null; });
@@ -2350,11 +2643,11 @@ function renderNutritionAverages() {
   var avgWat  = avg(waters);
   var statsHTML =
     '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px">' +
-      _nutStat('Calories',  fmtAvg(avgCal, 'kcal'), 'var(--yellow)') +
-      _nutStat('Protein',   fmtAvg(avgProt, 'g'),   'var(--green)') +
-      _nutStat('Carbs',     fmtAvg(avgCarb, 'g'),   'var(--blue)') +
-      _nutStat('Fat',       fmtAvg(avgFat, 'g'),    'var(--red)') +
-      _nutStat('Water',     fmtAvg(avgWat, 'L'),    'var(--text)') +
+      _nutStat('Calories',  fmtAvg(avgCal, 'kcal'), 'var(--yellow)', days.length) +
+      _nutStat('Protein',   fmtAvg(avgProt, 'g'),   'var(--green)', days.length) +
+      _nutStat('Carbs',     fmtAvg(avgCarb, 'g'),   'var(--blue)', days.length) +
+      _nutStat('Fat',       fmtAvg(avgFat, 'g'),    'var(--red)', days.length) +
+      _nutStat('Water',     fmtAvg(avgWat, 'L'),    'var(--text)', days.length) +
     '</div>';
   var rows = days.slice().reverse().map(function(ds, idx) {
     var ri = days.length - 1 - idx;
@@ -2381,100 +2674,95 @@ function renderNutritionAverages() {
   });
 }
 
-function _nutStat(label, val, color) {
+function _nutStat(label, val, color, count) {
   return '<div style="text-align:center;min-width:80px">' +
     '<div style="font-size:20px;font-weight:700;color:' + color + '">' + val + '</div>' +
-    '<div style="font-size:11px;color:var(--muted)">' + label + '<br>avg 14d</div></div>';
+    '<div style="font-size:11px;color:var(--muted)">' + label + '<br>avg ' + count + 'd</div></div>';
 }
 
 /* ============================================================
    AUTH
    ============================================================ */
 
-function _getUsers()     { return JSON.parse(localStorage.getItem('ft_users') || '[]'); }
-function _saveUsers(arr) { localStorage.setItem('ft_users', JSON.stringify(arr)); }
-
-async function _hashPw(pw) {
-  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
-  return Array.from(new Uint8Array(buf)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
-}
-
 function initAuth() {
-  var raw = sessionStorage.getItem('ft_session');
-  if (raw) {
-    try { ftSession = JSON.parse(raw); } catch(e) { ftSession = null; }
-  }
-  if (ftSession) {
-    _appStart();
-  } else {
+  if (!_sb) {
     document.getElementById('authOverlay').classList.remove('hidden');
-    setTimeout(function(){ document.getElementById('loginUsername').focus(); }, 100);
+    document.getElementById('loginError').textContent = 'Supabase failed to load.';
+    return;
   }
+  _sb.auth.onAuthStateChange(function(event, session) {
+    if (event === 'SIGNED_IN' && session) {
+      ftSession = { userId: session.user.id, email: session.user.email };
+      _appStart();
+    } else if (event === 'SIGNED_OUT') {
+      ftSession = null;
+      document.getElementById('authOverlay').classList.remove('hidden');
+    }
+  });
+  _sb.auth.getSession().then(function(result) {
+    var session = result.data.session;
+    if (session) {
+      ftSession = { userId: session.user.id, email: session.user.email };
+      _appStart();
+    } else {
+      document.getElementById('authOverlay').classList.remove('hidden');
+      setTimeout(function(){ document.getElementById('loginEmail').focus(); }, 100);
+    }
+  });
 }
 
 function _appStart() {
   document.getElementById('authOverlay').classList.add('hidden');
   var el = document.getElementById('headerUsername');
-  if (el) el.textContent = '👤 ' + ftSession.username;
-  loadState();
+  if (el && ftSession) el.textContent = '👤 ' + (ftSession.email || '').split('@')[0];
+  _pullAllFromSupabase().then(function() {
+    ensureDefaultExerciseLibrary();
+    bindDatePickers();
+    refreshOverviewStats();
+    renderProgressPage();
+    loadState();
+  });
 }
 
 function authShowRegister() {
   document.getElementById('authLoginForm').style.display = 'none';
   document.getElementById('authRegisterForm').style.display = 'block';
   document.getElementById('registerError').textContent = '';
-  setTimeout(function(){ document.getElementById('regUsername').focus(); }, 50);
+  setTimeout(function(){ document.getElementById('regEmail').focus(); }, 50);
 }
 
 function authShowLogin() {
   document.getElementById('authRegisterForm').style.display = 'none';
   document.getElementById('authLoginForm').style.display = 'block';
   document.getElementById('loginError').textContent = '';
-  setTimeout(function(){ document.getElementById('loginUsername').focus(); }, 50);
+  setTimeout(function(){ document.getElementById('loginEmail').focus(); }, 50);
 }
 
 async function authLogin() {
-  var username = document.getElementById('loginUsername').value.trim();
+  var email = document.getElementById('loginEmail').value.trim();
   var password = document.getElementById('loginPassword').value;
   var errEl = document.getElementById('loginError');
   errEl.textContent = '';
-  if (!username || !password) { errEl.textContent = 'Please enter username and password.'; return; }
-  var users = _getUsers();
-  var user = users.find(function(u){ return u.username.toLowerCase() === username.toLowerCase(); });
-  if (!user) { errEl.textContent = 'Username not found.'; return; }
-  var hash = await _hashPw(password);
-  if (hash !== user.passHash) { errEl.textContent = 'Incorrect password.'; return; }
-  ftSession = { userId: user.id, username: user.username };
-  sessionStorage.setItem('ft_session', JSON.stringify(ftSession));
-  _appStart();
+  if (!email || !password) { errEl.textContent = 'Please enter email and password.'; return; }
+  var result = await _sb.auth.signInWithPassword({ email: email, password: password });
+  if (result.error) errEl.textContent = result.error.message;
 }
 
 async function authRegister() {
-  var username = document.getElementById('regUsername').value.trim();
+  var email = document.getElementById('regEmail').value.trim();
   var password = document.getElementById('regPassword').value;
-  var confirm  = document.getElementById('regConfirm').value;
-  var errEl    = document.getElementById('registerError');
+  var confirm = document.getElementById('regConfirm').value;
+  var errEl = document.getElementById('registerError');
   errEl.textContent = '';
-  if (!username) { errEl.textContent = 'Please enter a username.'; return; }
-  if (username.length < 3) { errEl.textContent = 'Username must be at least 3 characters.'; return; }
-  if (!password) { errEl.textContent = 'Please enter a password.'; return; }
-  if (password.length < 4) { errEl.textContent = 'Password must be at least 4 characters.'; return; }
+  if (!email) { errEl.textContent = 'Please enter an email.'; return; }
+  if (password.length < 6) { errEl.textContent = 'Password must be 6+ characters.'; return; }
   if (password !== confirm) { errEl.textContent = 'Passwords do not match.'; return; }
-  var users = _getUsers();
-  if (users.find(function(u){ return u.username.toLowerCase() === username.toLowerCase(); })) {
-    errEl.textContent = 'Username already taken.'; return;
-  }
-  var hash = await _hashPw(password);
-  var user = { id: genId(), username: username, passHash: hash };
-  users.push(user);
-  _saveUsers(users);
-  ftSession = { userId: user.id, username: user.username };
-  sessionStorage.setItem('ft_session', JSON.stringify(ftSession));
-  _appStart();
+  var result = await _sb.auth.signUp({ email: email, password: password });
+  if (result.error) errEl.textContent = result.error.message;
 }
 
 function authLogout() {
-  sessionStorage.removeItem('ft_session');
+  _sb.auth.signOut();
   ftSession = null;
   location.reload();
 }
@@ -2485,9 +2773,8 @@ function authLogout() {
 
 function initSettings() {
   var el = document.getElementById('settingsUsername');
-  if (el && ftSession) el.textContent = ftSession.username;
+  if (el && ftSession) el.textContent = ftSession.email || '';
   document.getElementById('settingsPwMsg').textContent = '';
-  document.getElementById('settingsOldPw').value = '';
   document.getElementById('settingsNewPw').value = '';
   document.getElementById('settingsConfirmPw').value = '';
   // Load saved goals
@@ -2506,54 +2793,42 @@ function settingsSaveGoals() {
   var msg = document.getElementById('settingsGoalsMsg');
   msg.style.color = 'var(--green)';
   msg.textContent = 'Goals saved!';
+  refreshOverviewStats();
   setTimeout(function(){ msg.textContent = ''; }, 2000);
 }
 
 async function settingsChangePassword() {
-  var oldPw  = document.getElementById('settingsOldPw').value;
   var newPw  = document.getElementById('settingsNewPw').value;
   var confPw = document.getElementById('settingsConfirmPw').value;
   var msg    = document.getElementById('settingsPwMsg');
   msg.style.color = 'var(--red)';
-  if (!oldPw || !newPw || !confPw) { msg.textContent = 'Please fill in all fields.'; return; }
-  if (newPw.length < 4) { msg.textContent = 'New password must be at least 4 characters.'; return; }
-  if (newPw !== confPw) { msg.textContent = 'New passwords do not match.'; return; }
-  var users = _getUsers();
-  var idx   = users.findIndex(function(u){ return u.id === ftSession.userId; });
-  if (idx === -1) { msg.textContent = 'Account not found.'; return; }
-  var oldHash = await _hashPw(oldPw);
-  if (oldHash !== users[idx].passHash) { msg.textContent = 'Current password is incorrect.'; return; }
-  users[idx].passHash = await _hashPw(newPw);
-  _saveUsers(users);
+  if (newPw.length < 6) { msg.textContent = 'Password must be 6+ characters.'; return; }
+  if (newPw !== confPw) { msg.textContent = 'Passwords do not match.'; return; }
+  var result = await _sb.auth.updateUser({ password: newPw });
+  if (result.error) { msg.textContent = result.error.message; return; }
   msg.style.color = 'var(--green)';
-  msg.textContent = 'Password updated successfully.';
-  document.getElementById('settingsOldPw').value = '';
+  msg.textContent = 'Password updated.';
   document.getElementById('settingsNewPw').value = '';
   document.getElementById('settingsConfirmPw').value = '';
 }
 
-function _deleteUserData(userId) {
-  var prefix = 'u_' + userId + '_';
-  var toDelete = [];
-  for (var i = 0; i < localStorage.length; i++) {
-    var k = localStorage.key(i);
-    if (k && k.startsWith(prefix)) toDelete.push(k);
-  }
-  toDelete.forEach(function(k){ localStorage.removeItem(k); });
+function _deleteUserDataLocal(userId) {
+  Object.keys(localStorage)
+    .filter(function(k) { return k.startsWith('u_' + userId + '_'); })
+    .forEach(function(k) { localStorage.removeItem(k); });
 }
 
-function settingsResetMyData() {
-  if (!confirm('This will permanently delete ALL your workouts, routines, logs, and tracker data.\n\nYour account will remain. Are you sure?')) return;
-  _deleteUserData(ftSession.userId);
-  alert('All your data has been reset.');
+async function settingsResetMyData() {
+  if (!confirm('Delete ALL your data? This cannot be undone.')) return;
+  _deleteUserDataLocal(ftSession.userId);
+  if (_syncOnline && _sb) await _sb.from('user_data').delete().eq('user_id', ftSession.userId);
   location.reload();
 }
 
-function settingsDeleteAccount() {
-  if (!confirm('This will permanently delete your account AND all your data.\n\nThis cannot be undone. Are you sure?')) return;
-  _deleteUserData(ftSession.userId);
-  var users = _getUsers().filter(function(u){ return u.id !== ftSession.userId; });
-  _saveUsers(users);
+async function settingsDeleteAccount() {
+  if (!confirm('Delete your synced data and sign out? Your Supabase login will still exist.')) return;
+  _deleteUserDataLocal(ftSession.userId);
+  if (_syncOnline && _sb) await _sb.from('user_data').delete().eq('user_id', ftSession.userId);
   authLogout();
 }
 
@@ -2568,6 +2843,7 @@ function escH(str) {
 /* ============================================================
    INIT
    ============================================================ */
+bindDatePickers();
 initAuth(); // loadState() is called by _appStart() after auth
 </script>
 </body>
