@@ -690,14 +690,6 @@
           <label>Target Body Fat (%)</label>
           <input type="number" id="goalBodyFat" placeholder="e.g. 15" step="0.1" min="0" max="60">
         </div>
-        <div class="form-group" style="margin:0">
-          <label>Daily Protein (g)</label>
-          <input type="number" id="goalProtein" placeholder="e.g. 150" min="0">
-        </div>
-        <div class="form-group" style="margin:0">
-          <label>Daily Calories (kcal)</label>
-          <input type="number" id="goalCalories" placeholder="e.g. 2200" min="0">
-        </div>
       </div>
       <div id="settingsGoalsMsg" style="font-size:13px;margin:10px 0;min-height:18px"></div>
       <button class="btn-success" onclick="settingsSaveGoals()">Save Goals</button>
@@ -2132,8 +2124,7 @@ function renderGoalsProgress() {
   var el = document.getElementById('progressGoals');
   if (!el) return;
   var goals = getGoals();
-  var hasAnyGoal = goals.targetWeight != null || goals.targetBodyFat != null ||
-                   goals.targetProtein != null || goals.targetCalories != null;
+  var hasAnyGoal = goals.targetWeight != null || goals.targetBodyFat != null;
   if (!hasAnyGoal) {
     el.innerHTML = '<div style="background:var(--dark);border:1px solid var(--soft);border-radius:12px;padding:16px;color:var(--muted);font-size:14px">' +
       'No goals set yet. Go to <strong style="color:var(--yellow)">Settings → Goals &amp; Targets</strong> to set your targets.' +
@@ -2151,19 +2142,6 @@ function renderGoalsProgress() {
     if (latestBodyFat === null && m.bodyFat    != null) latestBodyFat = m.bodyFat;
     if (latestWeight !== null && latestBodyFat !== null) break;
   }
-
-  // 7-day avg protein and calories
-  var today = new Date();
-  var proteinVals = [], calVals = [];
-  for (var d = 0; d < 7; d++) {
-    var dd = new Date(today); dd.setDate(today.getDate() - d);
-    var ds = dd.toISOString().slice(0, 10);
-    var md = meta[ds] || {};
-    if (md.protein  != null) proteinVals.push(md.protein);
-    if (md.calories != null) calVals.push(md.calories);
-  }
-  var avgProtein  = proteinVals.length  ? Math.round(proteinVals.reduce(function(a,b){return a+b;},0)  / proteinVals.length)  : null;
-  var avgCalories = calVals.length      ? Math.round(calVals.reduce(function(a,b){return a+b;},0)      / calVals.length)      : null;
 
   function _goalCard(label, current, target, unit, lowerIsBetter) {
     if (target == null) return '';
@@ -2190,7 +2168,7 @@ function renderGoalsProgress() {
         (hasData
           ? (lowerIsBetter
               ? (current <= target ? 'Goal reached!' : (current - target).toFixed(1) + ' ' + unit + ' above target')
-              : pct + '% of goal' + (proteinVals.length || calVals.length ? ' (7d avg)' : ''))
+              : pct + '% of goal')
           : 'No data logged yet') +
       '</div>' +
     '</div>';
@@ -2199,10 +2177,8 @@ function renderGoalsProgress() {
   el.innerHTML =
     '<h3 style="margin-bottom:12px">Goals</h3>' +
     '<div style="display:flex;flex-wrap:wrap;gap:12px">' +
-      _goalCard('Weight',    latestWeight,  goals.targetWeight,   'kg',   true) +
-      _goalCard('Body Fat',  latestBodyFat, goals.targetBodyFat,  '%',    true) +
-      _goalCard('Protein',   avgProtein,    goals.targetProtein,  'g',    false) +
-      _goalCard('Calories',  avgCalories,   goals.targetCalories, 'kcal', false) +
+      _goalCard('Weight',   latestWeight,  goals.targetWeight,  'kg', true) +
+      _goalCard('Body Fat', latestBodyFat, goals.targetBodyFat, '%',  true) +
     '</div>';
 }
 
@@ -2518,17 +2494,13 @@ function initSettings() {
   var g = getGoals();
   document.getElementById('goalWeight').value   = g.targetWeight   != null ? g.targetWeight   : '';
   document.getElementById('goalBodyFat').value  = g.targetBodyFat  != null ? g.targetBodyFat  : '';
-  document.getElementById('goalProtein').value  = g.targetProtein  != null ? g.targetProtein  : '';
-  document.getElementById('goalCalories').value = g.targetCalories != null ? g.targetCalories : '';
   document.getElementById('settingsGoalsMsg').textContent = '';
 }
 
 function settingsSaveGoals() {
   var g = {
-    targetWeight:   numOrNull(document.getElementById('goalWeight').value),
-    targetBodyFat:  numOrNull(document.getElementById('goalBodyFat').value),
-    targetProtein:  numOrNull(document.getElementById('goalProtein').value),
-    targetCalories: numOrNull(document.getElementById('goalCalories').value)
+    targetWeight:  numOrNull(document.getElementById('goalWeight').value),
+    targetBodyFat: numOrNull(document.getElementById('goalBodyFat').value)
   };
   saveGoals(g);
   var msg = document.getElementById('settingsGoalsMsg');
