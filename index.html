@@ -715,11 +715,14 @@
       <p style="color:var(--muted);font-size:14px;margin-bottom:14px">These actions are permanent and cannot be undone.</p>
       <div style="display:flex;flex-wrap:wrap;gap:10px">
         <button class="danger-btn" onclick="settingsResetMyData()">Reset All My Data</button>
-        <button class="danger-btn" onclick="settingsDeleteAccount()">Delete My Cloud Data</button>
+        <button class="danger-btn" onclick="settingsDeleteCloudData()">Delete My Cloud Data</button>
+        <button class="danger-btn" onclick="settingsDeleteAccount()">Delete Account</button>
       </div>
+      <div id="settingsDangerMsg" style="font-size:13px;margin-top:10px;min-height:18px"></div>
       <p style="color:var(--muted);font-size:12px;margin-top:10px">
         <strong>Reset All My Data</strong> — deletes all your workouts, routines, logs, and tracker history but keeps your account.<br>
-        <strong>Delete My Cloud Data</strong> — deletes your synced data and signs you out. Your Supabase login still exists.
+        <strong>Delete My Cloud Data</strong> — deletes your synced data and signs you out. Your Supabase login still exists.<br>
+        <strong>Delete Account</strong> — deletes your synced data and your Supabase auth account.
       </p>
     </div>
   </div>
@@ -2761,8 +2764,18 @@ async function authRegister() {
   if (result.error) errEl.textContent = result.error.message;
 }
 
-function authLogout() {
-  _sb.auth.signOut();
+async function authLogout() {
+  if (!_sb) {
+    ftSession = null;
+    location.reload();
+    return;
+  }
+  var result = await _sb.auth.signOut();
+  if (result && result.error) {
+    var errEl = document.getElementById('loginError');
+    if (errEl) errEl.textContent = result.error.message;
+    return;
+  }
   ftSession = null;
   location.reload();
 }
@@ -2775,6 +2788,7 @@ function initSettings() {
   var el = document.getElementById('settingsUsername');
   if (el && ftSession) el.textContent = ftSession.email || '';
   document.getElementById('settingsPwMsg').textContent = '';
+  document.getElementById('settingsDangerMsg').textContent = '';
   document.getElementById('settingsNewPw').value = '';
   document.getElementById('settingsConfirmPw').value = '';
   // Load saved goals
@@ -2825,11 +2839,40 @@ async function settingsResetMyData() {
   location.reload();
 }
 
-async function settingsDeleteAccount() {
+async function settingsDeleteCloudData() {
   if (!confirm('Delete your synced data and sign out? Your Supabase login will still exist.')) return;
+  var msg = document.getElementById('settingsDangerMsg');
+  msg.style.color = 'var(--red)';
+  msg.textContent = '';
   _deleteUserDataLocal(ftSession.userId);
-  if (_syncOnline && _sb) await _sb.from('user_data').delete().eq('user_id', ftSession.userId);
+  if (_syncOnline && _sb) {
+    var result = await _sb.from('user_data').delete().eq('user_id', ftSession.userId);
+    if (result.error) {
+      msg.textContent = result.error.message;
+      return;
+    }
+  }
   authLogout();
+}
+
+async function settingsDeleteAccount() {
+  var msg = document.getElementById('settingsDangerMsg');
+  msg.style.color = 'var(--red)';
+  msg.textContent = '';
+  if (!confirm('Delete your full account from Supabase? This removes your login and synced data forever.')) return;
+  if (!_sb || !ftSession) {
+    msg.textContent = 'You must be logged in.';
+    return;
+  }
+  var result = await _sb.rpc('delete_my_account');
+  if (result.error) {
+    msg.textContent = result.error.message;
+    return;
+  }
+  _deleteUserDataLocal(ftSession.userId);
+  msg.style.color = 'var(--green)';
+  msg.textContent = 'Account deleted.';
+  setTimeout(function() { authLogout(); }, 400);
 }
 
 /* ============================================================
