@@ -1301,6 +1301,18 @@ function loadTrackerForDate(dateStr) {
 }
 
 /* ---- Multi-routine for today ---- */
+function persistTrackerPlannedRoutines() {
+  if (!trackerCurrentDate) return;
+  var meta = getDailyMeta();
+  meta[trackerCurrentDate] = Object.assign(meta[trackerCurrentDate] || {}, {
+    plannedRoutines: trackerPlannedRoutines.slice()
+  });
+  saveDailyMeta(meta);
+  refreshOverviewStats();
+  renderProgressPage();
+  renderCalendar();
+}
+
 function addTrackerRoutine() {
   var sel = document.getElementById('trackerAddRoutineSelect');
   var routineId = sel.value;
@@ -1310,11 +1322,13 @@ function addTrackerRoutine() {
   if (!routine) return;
   trackerPlannedRoutines.push({ id: routineId, name: routine.name });
   sel.value = '';
+  persistTrackerPlannedRoutines();
   renderTrackerRoutineList();
 }
 
 function removeTrackerRoutine(routineId) {
   trackerPlannedRoutines = trackerPlannedRoutines.filter(function(r){ return r.id !== routineId; });
+  persistTrackerPlannedRoutines();
   renderTrackerRoutineList();
 }
 
