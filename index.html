@@ -326,6 +326,20 @@
       <button class="btn-sm" onclick="setProgressRangeDays(7)">Next 7 Days</button>
       <button class="btn-sm" onclick="setProgressRangeDays(90)">Next 90 Days</button>
     </div>
+    <div id="progressDashboard" style="margin-bottom:20px"></div>
+    <div class="card" style="padding:18px;margin-bottom:20px;background:var(--dark);border:1px solid var(--soft)">
+      <div style="display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <div>
+          <h3 style="margin:0">Exercise Explorer</h3>
+          <div class="small" style="color:var(--muted)">Pick one exercise to see PRs and detailed stats.</div>
+        </div>
+        <div class="form-group" style="margin:0;min-width:260px">
+          <label>Exercise</label>
+          <select id="progressExerciseSelect" onchange="renderExerciseExplorer()" style="padding:10px 12px;border-radius:10px;border:1px solid var(--soft);background:var(--dark);color:white;font-size:14px;width:100%"></select>
+        </div>
+      </div>
+      <div id="progressExerciseExplorer"></div>
+    </div>
     <div id="progressConsistency" style="margin-bottom:20px"></div>
     <h3>Recent Workouts</h3>
     <div id="progressWorkoutHistory" style="margin-bottom:20px"></div>
@@ -2442,10 +2456,288 @@ function renderProgressPage() {
   var endEl = document.getElementById('progressEndDate');
   if (startEl && !startEl.value) startEl.value = range.start;
   if (endEl && !endEl.value) endEl.value = range.end;
+  renderProgressDashboard();
   renderConsistency();
   renderWorkoutHistory();
   renderBodyMetrics();
   renderNutritionAverages();
+}
+
+function getCompletedLogsInRange() {
+  var logs = getDailyLogs();
+  var range = getProgressRange();
+  var entries = [];
+  Object.keys(logs).filter(function(ds) {
+    return ds >= range.start && ds <= range.end;
+  }).sort().forEach(function(ds) {
+    _dailyLogList(logs[ds]).forEach(function(log) {
+      if (log.status === 'completed') entries.push({ date: ds, log: log });
+    });
+  });
+  return entries;
+}
+
+function getWorkoutDurationMin(log) {
+  if (!log || !log.startTime || !log.endTime) return 0;
+  var mins = Math.round((new Date(log.endTime) - new Date(log.startTime)) / 60000);
+  return isNaN(mins) || mins < 0 ? 0 : mins;
+}
+
+function getExerciseStatSeed(name) {
+  return {
+    name: name,
+    sessions: 0,
+    totalSets: 0,
+    completedSets: 0,
+    totalVolume: 0,
+    maxWeight: 0,
+    maxReps: 0,
+    maxDuration: 0,
+    bestEstimated1RM: 0,
+    lastPerformed: '',
+    history: []
+  };
+}
+
+function estimate1RM(weight, reps) {
+  if (!weight || !reps) return 0;
+  return weight * (1 + reps / 30);
+}
+
+function collectExerciseStats(entries) {
+  var map = {};
+  entries.forEach(function(entry) {
+    (entry.log.exercises || []).forEach(function(ex) {
+      var name = (ex.name || '').trim();
+      if (!name) return;
+      if (!map[name]) map[name] = getExerciseStatSeed(name);
+      var item = map[name];
+      item.sessions++;
+      item.lastPerformed = entry.date;
+      var setVolume = 0;
+      var setCount = 0;
+      var completedCount = 0;
+      var bestWeight = 0;
+      var bestReps = 0;
+      var bestDuration = 0;
+      var best1RM = 0;
+      if (ex.type === 'cardio') {
+        if (ex.completed) completedCount = 1;
+        var cardio = ex.cardioProps || {};
+        bestDuration = cardio.duration || 0;
+      } else {
+        (ex.sets || []).forEach(function(set) {
+          setCount++;
+          if (set.completed) completedCount++;
+          if (set.weight && set.reps) setVolume += set.weight * set.reps;
+          if (set.weight > bestWeight) bestWeight = set.weight;
+          if (set.reps > bestReps) bestReps = set.reps;
+          if (set.duration > bestDuration) bestDuration = set.duration;
+          var est = estimate1RM(set.weight, set.reps);
+          if (est > best1RM) best1RM = est;
+        });
+      }
+      item.totalSets += setCount;
+      item.completedSets += completedCount;
+      item.totalVolume += setVolume;
+      item.maxWeight = Math.max(item.maxWeight, bestWeight);
+      item.maxReps = Math.max(item.maxReps, bestReps);
+      item.maxDuration = Math.max(item.maxDuration, bestDuration);
+      item.bestEstimated1RM = Math.max(item.bestEstimated1RM, best1RM);
+      item.history.push({
+        date: entry.date,
+        routineName: entry.log.routineName || 'Workout',
+        type: ex.type,
+        setCount: setCount,
+        completedSets: completedCount,
+        volume: setVolume,
+        maxWeight: bestWeight,
+        maxReps: bestReps,
+        maxDuration: bestDuration,
+        estimated1RM: best1RM
+      });
+    });
+  });
+  return map;
+}
+
+function buildMiniStatCard(label, value, color) {
+  return '<div style="background:var(--dark);border:1px solid var(--soft);border-radius:14px;padding:16px;min-width:140px;flex:1">' +
+    '<div style="font-size:28px;font-weight:700;color:' + color + '">' + value + '</div>' +
+    '<div class="small" style="color:var(--muted)">' + label + '</div>' +
+  '</div>';
+}
+
+function renderProgressDashboard() {
+  var el = document.getElementById('progressDashboard');
+  if (!el) return;
+  var entries = getCompletedLogsInRange();
+  var range = getProgressRange();
+  var meta = getDailyMeta();
+  var exerciseMap = collectExerciseStats(entries);
+  var names = Object.keys(exerciseMap).sort(function(a, b) { return a.localeCompare(b); });
+  var totalDuration = entries.reduce(function(acc, entry) { return acc + getWorkoutDurationMin(entry.log); }, 0);
+  var totalSets = entries.reduce(function(acc, entry) { return acc + _countCompletedSets(entry.log.exercises); }, 0);
+  var totalVolume = entries.reduce(function(acc, entry) {
+    return acc + (entry.log.exercises || []).reduce(function(sum, ex) {
+      if (ex.type === 'cardio') return sum;
+      return sum + (ex.sets || []).reduce(function(s, set) {
+        return s + ((set.weight && set.reps) ? set.weight * set.reps : 0);
+      }, 0);
+    }, 0);
+  }, 0);
+  var days = getDateRangeDays(range.start, range.end);
+  var totalPlanned = 0;
+  days.forEach(function(ds) {
+    if (ds > todayDateStr()) return;
+    var dayMeta = meta[ds] || {};
+    totalPlanned += (dayMeta.plannedRoutines || []).length;
+  });
+  var adherence = totalPlanned ? Math.round(entries.length / totalPlanned * 100) : 0;
+  var streak = 0;
+  var logs = getDailyLogs();
+  for (var i = days.length - 1; i >= 0; i--) {
+    var ds = days[i];
+    if (ds > todayDateStr()) continue;
+    var dayLogs = _dailyLogList(logs[ds]);
+    var dayMeta = meta[ds] || {};
+    if (dayLogs.some(function(log) { return log.status === 'completed'; }) || dayMeta.isRestDay) streak++;
+    else break;
+  }
+  var topExercises = Object.keys(exerciseMap).map(function(name) {
+    return exerciseMap[name];
+  }).sort(function(a, b) {
+    return b.sessions - a.sessions || b.completedSets - a.completedSets || a.name.localeCompare(b.name);
+  }).slice(0, 5);
+  var monthStart = todayDateStr().slice(0, 8) + '01';
+  var prsThisMonth = [];
+  Object.keys(exerciseMap).forEach(function(name) {
+    var item = exerciseMap[name];
+    var beforeMonth = item.history.filter(function(h) { return h.date < monthStart; });
+    var inMonth = item.history.filter(function(h) { return h.date >= monthStart; });
+    if (!inMonth.length) return;
+    var prevWeight = beforeMonth.reduce(function(m, h) { return Math.max(m, h.maxWeight || 0); }, 0);
+    var prevReps = beforeMonth.reduce(function(m, h) { return Math.max(m, h.maxReps || 0); }, 0);
+    var prev1RM = beforeMonth.reduce(function(m, h) { return Math.max(m, h.estimated1RM || 0); }, 0);
+    inMonth.forEach(function(h) {
+      if (h.maxWeight > prevWeight) prsThisMonth.push(h.date + ' - ' + name + ' new weight PR: ' + h.maxWeight + ' kg');
+      if (h.maxReps > prevReps) prsThisMonth.push(h.date + ' - ' + name + ' new reps PR: ' + h.maxReps);
+      if (h.estimated1RM > prev1RM && h.estimated1RM > 0) prsThisMonth.push(h.date + ' - ' + name + ' new est 1RM PR: ' + h.estimated1RM.toFixed(1) + ' kg');
+    });
+  });
+  prsThisMonth = prsThisMonth.slice(-8).reverse();
+  var weekMap = {};
+  entries.forEach(function(entry) {
+    var d = new Date(entry.date + 'T00:00:00');
+    var weekStart = new Date(d);
+    weekStart.setDate(d.getDate() - d.getDay());
+    var key = _dateToLocalStr(weekStart);
+    if (!weekMap[key]) weekMap[key] = { workouts: 0, sets: 0, volume: 0 };
+    weekMap[key].workouts++;
+    weekMap[key].sets += _countCompletedSets(entry.log.exercises);
+    weekMap[key].volume += (entry.log.exercises || []).reduce(function(sum, ex) {
+      if (ex.type === 'cardio') return sum;
+      return sum + (ex.sets || []).reduce(function(s, set) {
+        return s + ((set.weight && set.reps) ? set.weight * set.reps : 0);
+      }, 0);
+    }, 0);
+  });
+  var weeks = Object.keys(weekMap).sort().slice(-6);
+  var maxWeekWorkouts = weeks.reduce(function(m, k) { return Math.max(m, weekMap[k].workouts); }, 1);
+  var maxWeekSets = weeks.reduce(function(m, k) { return Math.max(m, weekMap[k].sets); }, 1);
+  var maxWeekVolume = weeks.reduce(function(m, k) { return Math.max(m, weekMap[k].volume); }, 1);
+  var weeklyHTML = weeks.length ? weeks.map(function(k) {
+    var wk = weekMap[k];
+    return '<div style="background:var(--dark);border:1px solid var(--soft);border-radius:14px;padding:12px;min-width:150px;flex:1">' +
+      '<div class="small" style="color:var(--muted);margin-bottom:8px">Week of ' + escH(k) + '</div>' +
+      '<div style="margin-bottom:8px"><div class="small">Workouts: ' + wk.workouts + '</div><div style="height:8px;background:var(--soft);border-radius:999px;overflow:hidden"><div style="height:100%;width:' + Math.round(wk.workouts / maxWeekWorkouts * 100) + '%;background:var(--green)"></div></div></div>' +
+      '<div style="margin-bottom:8px"><div class="small">Sets: ' + wk.sets + '</div><div style="height:8px;background:var(--soft);border-radius:999px;overflow:hidden"><div style="height:100%;width:' + Math.round(wk.sets / maxWeekSets * 100) + '%;background:var(--yellow)"></div></div></div>' +
+      '<div><div class="small">Volume: ' + Math.round(wk.volume) + ' kg</div><div style="height:8px;background:var(--soft);border-radius:999px;overflow:hidden"><div style="height:100%;width:' + Math.round(wk.volume / maxWeekVolume * 100) + '%;background:var(--blue)"></div></div></div>' +
+    '</div>';
+  }).join('') : '<div class="empty-state">No weekly trend data yet.</div>';
+  var topExercisesHTML = topExercises.length ? '<div style="display:grid;gap:10px">' + topExercises.map(function(item, idx) {
+    return '<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;background:var(--dark);border:1px solid var(--soft);border-radius:12px;padding:12px 14px">' +
+      '<div><strong style="color:var(--blue)">#' + (idx + 1) + ' ' + escH(item.name) + '</strong><div class="small" style="color:var(--muted)">' + item.sessions + ' sessions · ' + item.completedSets + ' completed sets</div></div>' +
+      '<div class="small" style="color:var(--muted);text-align:right">Volume ' + Math.round(item.totalVolume) + ' kg</div>' +
+    '</div>';
+  }).join('') + '</div>' : '<div class="empty-state">No exercise data yet.</div>';
+  var prsHTML = prsThisMonth.length ? '<div style="display:grid;gap:8px">' + prsThisMonth.map(function(text) {
+    return '<div style="background:var(--dark);border:1px solid var(--soft);border-radius:12px;padding:10px 12px;color:var(--text)">' + escH(text) + '</div>';
+  }).join('') + '</div>' : '<div class="empty-state">No PRs this month yet.</div>';
+
+  el.innerHTML =
+    '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px">' +
+      buildMiniStatCard('Total Workouts', entries.length, 'var(--green)') +
+      buildMiniStatCard('Current Streak', streak, 'var(--yellow)') +
+      buildMiniStatCard('Total Duration', totalDuration + ' min', 'var(--blue)') +
+      buildMiniStatCard('Total Sets', totalSets, 'var(--text)') +
+      buildMiniStatCard('Total Volume', Math.round(totalVolume) + ' kg', 'var(--red)') +
+      buildMiniStatCard('Adherence %', adherence + '%', 'var(--green)') +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px">' +
+      '<div><h3 style="margin:0 0 10px">Top 5 Exercises</h3>' + topExercisesHTML + '</div>' +
+      '<div><h3 style="margin:0 0 10px">PRs This Month</h3>' + prsHTML + '</div>' +
+    '</div>' +
+    '<div style="margin-top:18px"><h3 style="margin:0 0 10px">Weekly Trend Charts</h3><div style="display:flex;gap:12px;flex-wrap:wrap">' + weeklyHTML + '</div></div>';
+
+  var sel = document.getElementById('progressExerciseSelect');
+  if (sel) {
+    var current = sel.value;
+    sel.innerHTML = names.length
+      ? names.map(function(name) { return '<option value="' + escH(name) + '">' + escH(name) + '</option>'; }).join('')
+      : '<option value="">No exercise data</option>';
+    if (current && names.indexOf(current) !== -1) sel.value = current;
+  }
+  renderExerciseExplorer();
+}
+
+function renderExerciseExplorer() {
+  var el = document.getElementById('progressExerciseExplorer');
+  var sel = document.getElementById('progressExerciseSelect');
+  if (!el || !sel) return;
+  var entries = getCompletedLogsInRange();
+  var exerciseMap = collectExerciseStats(entries);
+  var item = exerciseMap[sel.value];
+  if (!item) {
+    el.innerHTML = '<div class="empty-state">No exercise data in the selected range.</div>';
+    return;
+  }
+  var history = item.history.slice().sort(function(a, b) { return b.date.localeCompare(a.date); }).slice(0, 12);
+  var rows = history.map(function(h) {
+    return '<tr>' +
+      '<td>' + escH(h.date) + '</td>' +
+      '<td>' + escH(h.routineName) + '</td>' +
+      '<td>' + h.completedSets + '/' + h.setCount + '</td>' +
+      '<td>' + (h.maxWeight ? h.maxWeight + ' kg' : '—') + '</td>' +
+      '<td>' + (h.maxReps ? h.maxReps : '—') + '</td>' +
+      '<td>' + (h.maxDuration ? h.maxDuration + ' sec' : '—') + '</td>' +
+      '<td>' + Math.round(h.volume) + ' kg</td>' +
+      '<td>' + (h.estimated1RM ? h.estimated1RM.toFixed(1) + ' kg' : '—') + '</td>' +
+      '</tr>';
+  }).join('');
+  el.innerHTML =
+    '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">' +
+      buildMiniStatCard('Sessions', item.sessions, 'var(--green)') +
+      buildMiniStatCard('Completed Sets', item.completedSets, 'var(--yellow)') +
+      buildMiniStatCard('Total Volume', Math.round(item.totalVolume) + ' kg', 'var(--blue)') +
+      buildMiniStatCard('PR Weight', item.maxWeight ? item.maxWeight + ' kg' : '—', 'var(--red)') +
+      buildMiniStatCard('PR Reps', item.maxReps || '—', 'var(--text)') +
+      buildMiniStatCard('Est 1RM', item.bestEstimated1RM ? item.bestEstimated1RM.toFixed(1) + ' kg' : '—', 'var(--green)') +
+    '</div>' +
+    '<div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:14px">' +
+      '<div class="small" style="color:var(--muted)">Last performed: <strong style="color:var(--text)">' + escH(item.lastPerformed || '—') + '</strong></div>' +
+      '<div class="small" style="color:var(--muted)">Best duration: <strong style="color:var(--text)">' + (item.maxDuration ? item.maxDuration + ' sec' : '—') + '</strong></div>' +
+      '<div class="small" style="color:var(--muted)">Set completion: <strong style="color:var(--text)">' + (item.totalSets ? Math.round(item.completedSets / item.totalSets * 100) : 0) + '%</strong></div>' +
+    '</div>' +
+    '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">' +
+      '<thead><tr style="color:var(--muted);text-align:left">' +
+      '<th style="padding:6px 8px">Date</th><th style="padding:6px 8px">Routine</th><th style="padding:6px 8px">Sets</th><th style="padding:6px 8px">Max Weight</th><th style="padding:6px 8px">Max Reps</th><th style="padding:6px 8px">Max Duration</th><th style="padding:6px 8px">Volume</th><th style="padding:6px 8px">Est 1RM</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+  var trs = el.querySelectorAll('tbody tr');
+  trs.forEach(function(tr) {
+    tr.style.borderTop = '1px solid var(--soft)';
+    tr.querySelectorAll('td').forEach(function(td) { td.style.padding = '7px 8px'; });
+  });
 }
 
 function renderConsistency() {
