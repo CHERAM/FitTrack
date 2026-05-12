@@ -322,9 +322,9 @@
         <label>End Date</label>
         <input type="date" id="progressEndDate" onchange="progressRangeChanged()">
       </div>
-      <button class="btn-sm" onclick="setProgressRangeDays(30)">Last 30 Days</button>
-      <button class="btn-sm" onclick="setProgressRangeDays(7)">Last 7 Days</button>
-      <button class="btn-sm" onclick="setProgressRangeDays(90)">Last 90 Days</button>
+      <button class="btn-sm" onclick="setProgressRangeDays(30)">Next 30 Days</button>
+      <button class="btn-sm" onclick="setProgressRangeDays(7)">Next 7 Days</button>
+      <button class="btn-sm" onclick="setProgressRangeDays(90)">Next 90 Days</button>
     </div>
     <div id="progressConsistency" style="margin-bottom:20px"></div>
     <h3>Recent Workouts</h3>
@@ -1196,9 +1196,9 @@ function ensureDefaultExerciseLibrary() {
 var progressRange = { start: null, end: null };
 
 function setProgressRangeDays(days) {
-  var end = new Date();
   var start = new Date();
-  start.setDate(end.getDate() - (days - 1));
+  var end = new Date();
+  end.setDate(start.getDate() + days);
   progressRange.start = _dateToLocalStr(start);
   progressRange.end = _dateToLocalStr(end);
   var startEl = document.getElementById('progressStartDate');
