@@ -300,6 +300,7 @@
 <!-- Main navigation tabs -->
 <div class="tabs">
   <button class="tab active" onclick="showSection('overview',this)">Overview</button>
+  <button class="tab" onclick="showSection('progress',this)">Progress</button>
   <button class="tab" onclick="showSection('morning',this)">Morning</button>
   <button class="tab" onclick="showSection('diet',this)">Diet</button>
   <button class="tab" id="tab-daily-tracker" onclick="showSection('daily-tracker',this)">Daily Tracker</button>
@@ -326,6 +327,27 @@
       <button class="btn-sm" onclick="setProgressRangeDays(7)">Next 7 Days</button>
       <button class="btn-sm" onclick="setProgressRangeDays(90)">Next 90 Days</button>
     </div>
+    <div id="overviewDashboard" style="margin-bottom:20px"></div>
+    <div id="overviewConsistency" style="margin-bottom:20px"></div>
+  </div>
+</section>
+
+<section id="progress" class="section">
+  <div class="card">
+    <h2>Progress</h2>
+    <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:18px">
+      <div class="form-group" style="margin:0">
+        <label>Start Date</label>
+        <input type="date" id="progressPageStartDate" onchange="progressRangeChanged('page')">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>End Date</label>
+        <input type="date" id="progressPageEndDate" onchange="progressRangeChanged('page')">
+      </div>
+      <button class="btn-sm" onclick="setProgressRangeDays(30)">Next 30 Days</button>
+      <button class="btn-sm" onclick="setProgressRangeDays(7)">Next 7 Days</button>
+      <button class="btn-sm" onclick="setProgressRangeDays(90)">Next 90 Days</button>
+    </div>
     <div id="progressDashboard" style="margin-bottom:20px"></div>
     <div class="card" style="padding:18px;margin-bottom:20px;background:var(--dark);border:1px solid var(--soft)">
       <div style="display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap;margin-bottom:12px">
@@ -340,7 +362,7 @@
       </div>
       <div id="progressExerciseExplorer"></div>
     </div>
-    <div id="progressConsistency" style="margin-bottom:20px"></div>
+    <div id="progressDetailedStats" style="margin-bottom:20px"></div>
     <h3>Recent Workouts</h3>
     <div id="progressWorkoutHistory" style="margin-bottom:20px"></div>
     <h3>Body Metrics</h3>
@@ -897,11 +919,12 @@ function showSection(id, btn) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
   // New tab inits
-  if (id === 'daily-tracker') initDailyTracker();
+  if (id === 'overview') renderProgressPage();
+  else if (id === 'progress') renderProgressPage();
+  else if (id === 'daily-tracker') initDailyTracker();
   else if (id === 'routines') renderFolders();
   else if (id === 'workout-session') initWorkoutSession();
   else if (id === 'calendar') initCalendar();
-  else if (id === 'progress') renderProgressPage();
   else if (id === 'settings') initSettings();
 }
 
@@ -1209,22 +1232,32 @@ function ensureDefaultExerciseLibrary() {
 
 var progressRange = { start: null, end: null };
 
+function syncProgressRangeInputs() {
+  var pairs = [
+    ['progressStartDate', 'progressEndDate'],
+    ['progressPageStartDate', 'progressPageEndDate']
+  ];
+  pairs.forEach(function(ids) {
+    var startEl = document.getElementById(ids[0]);
+    var endEl = document.getElementById(ids[1]);
+    if (startEl) startEl.value = progressRange.start || '';
+    if (endEl) endEl.value = progressRange.end || '';
+  });
+}
+
 function setProgressRangeDays(days) {
   var start = new Date();
   var end = new Date();
   end.setDate(start.getDate() + days);
   progressRange.start = _dateToLocalStr(start);
   progressRange.end = _dateToLocalStr(end);
-  var startEl = document.getElementById('progressStartDate');
-  var endEl = document.getElementById('progressEndDate');
-  if (startEl) startEl.value = progressRange.start;
-  if (endEl) endEl.value = progressRange.end;
+  syncProgressRangeInputs();
   renderProgressPage();
 }
 
-function progressRangeChanged() {
-  var startEl = document.getElementById('progressStartDate');
-  var endEl = document.getElementById('progressEndDate');
+function progressRangeChanged(source) {
+  var startEl = document.getElementById(source === 'page' ? 'progressPageStartDate' : 'progressStartDate');
+  var endEl = document.getElementById(source === 'page' ? 'progressPageEndDate' : 'progressEndDate');
   if (!startEl || !endEl) return;
   var start = startEl.value;
   var end = endEl.value;
@@ -1238,6 +1271,7 @@ function progressRangeChanged() {
   }
   progressRange.start = start;
   progressRange.end = end;
+  syncProgressRangeInputs();
   renderProgressPage();
 }
 
@@ -2452,15 +2486,19 @@ function pickExerciseFromLibrary(libId) {
 function renderProgressPage() {
   refreshOverviewStats();
   var range = getProgressRange();
-  var startEl = document.getElementById('progressStartDate');
-  var endEl = document.getElementById('progressEndDate');
-  if (startEl && !startEl.value) startEl.value = range.start;
-  if (endEl && !endEl.value) endEl.value = range.end;
-  renderProgressDashboard();
-  renderConsistency();
-  renderWorkoutHistory();
-  renderBodyMetrics();
-  renderNutritionAverages();
+  if (!progressRange.start || !progressRange.end) {
+    progressRange.start = range.start;
+    progressRange.end = range.end;
+  }
+  syncProgressRangeInputs();
+  renderProgressDashboard('overviewDashboard', false);
+  renderConsistency('overviewConsistency');
+  renderProgressDashboard('progressDashboard', true);
+  renderExerciseExplorer();
+  renderDetailedProgressStats();
+  renderWorkoutHistory('progressWorkoutHistory');
+  renderBodyMetrics('progressBodyMetrics');
+  renderNutritionAverages('progressNutrition');
 }
 
 function getCompletedLogsInRange() {
@@ -2568,16 +2606,29 @@ function buildMiniStatCard(label, value, color) {
   '</div>';
 }
 
-function renderProgressDashboard() {
-  var el = document.getElementById('progressDashboard');
-  if (!el) return;
+function getProgressAnalytics() {
   var entries = getCompletedLogsInRange();
   var range = getProgressRange();
+  var logs = getDailyLogs();
   var meta = getDailyMeta();
   var exerciseMap = collectExerciseStats(entries);
   var names = Object.keys(exerciseMap).sort(function(a, b) { return a.localeCompare(b); });
+  var allLogs = [];
+  Object.keys(logs).filter(function(ds) {
+    return ds >= range.start && ds <= range.end;
+  }).sort().forEach(function(ds) {
+    _dailyLogList(logs[ds]).forEach(function(log) {
+      allLogs.push({ date: ds, log: log });
+    });
+  });
   var totalDuration = entries.reduce(function(acc, entry) { return acc + getWorkoutDurationMin(entry.log); }, 0);
   var totalSets = entries.reduce(function(acc, entry) { return acc + _countCompletedSets(entry.log.exercises); }, 0);
+  var totalPlannedSets = entries.reduce(function(acc, entry) {
+    return acc + (entry.log.exercises || []).reduce(function(sum, ex) {
+      if (ex.type === 'cardio') return sum + 1;
+      return sum + ((ex.sets || []).length);
+    }, 0);
+  }, 0);
   var totalVolume = entries.reduce(function(acc, entry) {
     return acc + (entry.log.exercises || []).reduce(function(sum, ex) {
       if (ex.type === 'cardio') return sum;
@@ -2588,21 +2639,55 @@ function renderProgressDashboard() {
   }, 0);
   var days = getDateRangeDays(range.start, range.end);
   var totalPlanned = 0;
+  var skippedRoutineMap = {};
   days.forEach(function(ds) {
     if (ds > todayDateStr()) return;
     var dayMeta = meta[ds] || {};
-    totalPlanned += (dayMeta.plannedRoutines || []).length;
+    var planned = (dayMeta.plannedRoutines || []);
+    totalPlanned += planned.length;
+    var completedRoutineIds = _dailyLogList(logs[ds]).filter(function(log) {
+      return log.status === 'completed';
+    }).map(function(log) { return log.routineId; });
+    planned.forEach(function(item) {
+      if (completedRoutineIds.indexOf(item.id) === -1) {
+        skippedRoutineMap[item.name] = (skippedRoutineMap[item.name] || 0) + 1;
+      }
+    });
   });
   var adherence = totalPlanned ? Math.round(entries.length / totalPlanned * 100) : 0;
   var streak = 0;
-  var logs = getDailyLogs();
+  var longestStreak = 0;
+  var activeDays = 0, restDays = 0, missedDays = 0, futureDays = 0, trainingDays = 0;
   for (var i = days.length - 1; i >= 0; i--) {
     var ds = days[i];
-    if (ds > todayDateStr()) continue;
+    var isFuture = ds > todayDateStr();
+    if (isFuture) { futureDays++; continue; }
     var dayLogs = _dailyLogList(logs[ds]);
     var dayMeta = meta[ds] || {};
-    if (dayLogs.some(function(log) { return log.status === 'completed'; }) || dayMeta.isRestDay) streak++;
-    else break;
+    var isCompleted = dayLogs.some(function(log) { return log.status === 'completed'; });
+    var isRest = !!dayMeta.isRestDay;
+    if (isCompleted) trainingDays++;
+    if (isRest) restDays++;
+    if (isCompleted || isRest) {
+      activeDays++;
+      streak++;
+    } else {
+      missedDays++;
+      break;
+    }
+  }
+  var streakRun = 0;
+  for (var si = 0; si < days.length; si++) {
+    var sds = days[si];
+    if (sds > todayDateStr()) continue;
+    var sLogs = _dailyLogList(logs[sds]);
+    var sMeta = meta[sds] || {};
+    if (sLogs.some(function(log) { return log.status === 'completed'; }) || sMeta.isRestDay) {
+      streakRun++;
+      if (streakRun > longestStreak) longestStreak = streakRun;
+    } else {
+      streakRun = 0;
+    }
   }
   var topExercises = Object.keys(exerciseMap).map(function(name) {
     return exerciseMap[name];
@@ -2626,78 +2711,157 @@ function renderProgressDashboard() {
     });
   });
   prsThisMonth = prsThisMonth.slice(-8).reverse();
-  var weekMap = {};
+  var routineFreq = {};
+  var muscleFreq = {};
+  var workoutsByMonth = {};
+  var weekdayMap = { Weekday: 0, Weekend: 0 };
+  var totalExercisesPerformed = 0;
+  var plannedVsCompleted = { planned: totalPlanned, completed: entries.length };
+  var cardioSessions = 0, cardioMinutes = 0, cardioDistance = 0, cardioSpeedTotal = 0, cardioSpeedCount = 0, cardioInclineTotal = 0, cardioInclineCount = 0;
+  var timedDurationTotal = 0, timedDurationCount = 0, longestHold = 0;
+  var totalReps = 0, repSetCount = 0, weightedSetCount = 0, totalWeight = 0;
+  var bestSet = null, heaviestLift = null, bestBodyweight = null, bestAssist = null;
   entries.forEach(function(entry) {
-    var d = new Date(entry.date + 'T00:00:00');
-    var weekStart = new Date(d);
-    weekStart.setDate(d.getDate() - d.getDay());
-    var key = _dateToLocalStr(weekStart);
-    if (!weekMap[key]) weekMap[key] = { workouts: 0, sets: 0, volume: 0 };
-    weekMap[key].workouts++;
-    weekMap[key].sets += _countCompletedSets(entry.log.exercises);
-    weekMap[key].volume += (entry.log.exercises || []).reduce(function(sum, ex) {
-      if (ex.type === 'cardio') return sum;
-      return sum + (ex.sets || []).reduce(function(s, set) {
-        return s + ((set.weight && set.reps) ? set.weight * set.reps : 0);
-      }, 0);
-    }, 0);
+    var log = entry.log;
+    var dateObj = new Date(entry.date + 'T00:00:00');
+    workoutsByMonth[entry.date.slice(0, 7)] = (workoutsByMonth[entry.date.slice(0, 7)] || 0) + 1;
+    weekdayMap[(dateObj.getDay() === 0 || dateObj.getDay() === 6) ? 'Weekend' : 'Weekday']++;
+    routineFreq[log.routineName || 'Empty Workout'] = (routineFreq[log.routineName || 'Empty Workout'] || 0) + 1;
+    totalExercisesPerformed += (log.exercises || []).length;
+    (log.exercises || []).forEach(function(ex) {
+      var group = ex.muscleGroup || 'Unspecified';
+      muscleFreq[group] = (muscleFreq[group] || 0) + 1;
+      if (ex.type === 'cardio') {
+        cardioSessions++;
+        var c = ex.cardioProps || {};
+        cardioMinutes += c.duration || 0;
+        cardioDistance += c.distance || 0;
+        if (c.speed) { cardioSpeedTotal += c.speed; cardioSpeedCount++; }
+        if (c.incline) { cardioInclineTotal += c.incline; cardioInclineCount++; }
+      } else {
+        (ex.sets || []).forEach(function(set) {
+          if (set.reps != null) { totalReps += set.reps; repSetCount++; }
+          if (set.weight != null) { totalWeight += set.weight; weightedSetCount++; }
+          if (set.duration != null) {
+            timedDurationTotal += set.duration;
+            timedDurationCount++;
+            if (set.duration > longestHold) longestHold = set.duration;
+          }
+          if (set.weight && set.reps) {
+            var volume = set.weight * set.reps;
+            if (!bestSet || volume > bestSet.volume) bestSet = { name: ex.name, reps: set.reps, weight: set.weight, volume: volume };
+            if (!heaviestLift || set.weight > heaviestLift.weight) heaviestLift = { name: ex.name, weight: set.weight, reps: set.reps };
+          }
+          if ((ex.type === 'bodyweight' || ex.type === 'assisted_bodyweight') && set.reps && (!bestBodyweight || set.reps > bestBodyweight.reps)) {
+            bestBodyweight = { name: ex.name, reps: set.reps };
+          }
+          if (ex.type === 'assisted_bodyweight' && set.assistWeight != null && (!bestAssist || set.assistWeight < bestAssist.assistWeight)) {
+            bestAssist = { name: ex.name, assistWeight: set.assistWeight, reps: set.reps || 0 };
+          }
+        });
+      }
+    });
   });
-  var weeks = Object.keys(weekMap).sort().slice(-6);
-  var maxWeekWorkouts = weeks.reduce(function(m, k) { return Math.max(m, weekMap[k].workouts); }, 1);
-  var maxWeekSets = weeks.reduce(function(m, k) { return Math.max(m, weekMap[k].sets); }, 1);
-  var maxWeekVolume = weeks.reduce(function(m, k) { return Math.max(m, weekMap[k].volume); }, 1);
-  var weeklyHTML = weeks.length ? weeks.map(function(k) {
-    var wk = weekMap[k];
-    return '<div style="background:var(--dark);border:1px solid var(--soft);border-radius:14px;padding:12px;min-width:150px;flex:1">' +
-      '<div class="small" style="color:var(--muted);margin-bottom:8px">Week of ' + escH(k) + '</div>' +
-      '<div style="margin-bottom:8px"><div class="small">Workouts: ' + wk.workouts + '</div><div style="height:8px;background:var(--soft);border-radius:999px;overflow:hidden"><div style="height:100%;width:' + Math.round(wk.workouts / maxWeekWorkouts * 100) + '%;background:var(--green)"></div></div></div>' +
-      '<div style="margin-bottom:8px"><div class="small">Sets: ' + wk.sets + '</div><div style="height:8px;background:var(--soft);border-radius:999px;overflow:hidden"><div style="height:100%;width:' + Math.round(wk.sets / maxWeekSets * 100) + '%;background:var(--yellow)"></div></div></div>' +
-      '<div><div class="small">Volume: ' + Math.round(wk.volume) + ' kg</div><div style="height:8px;background:var(--soft);border-radius:999px;overflow:hidden"><div style="height:100%;width:' + Math.round(wk.volume / maxWeekVolume * 100) + '%;background:var(--blue)"></div></div></div>' +
-    '</div>';
-  }).join('') : '<div class="empty-state">No weekly trend data yet.</div>';
-  var topExercisesHTML = topExercises.length ? '<div style="display:grid;gap:10px">' + topExercises.map(function(item, idx) {
+  var favoriteRoutine = Object.keys(routineFreq).sort(function(a, b) { return routineFreq[b] - routineFreq[a] || a.localeCompare(b); })[0] || '—';
+  var mostSkippedRoutine = Object.keys(skippedRoutineMap).sort(function(a, b) { return skippedRoutineMap[b] - skippedRoutineMap[a] || a.localeCompare(b); })[0] || '—';
+  return {
+    entries: entries,
+    allLogs: allLogs,
+    range: range,
+    names: names,
+    exerciseMap: exerciseMap,
+    totalDuration: totalDuration,
+    totalSets: totalSets,
+    totalPlannedSets: totalPlannedSets,
+    totalVolume: totalVolume,
+    totalPlanned: totalPlanned,
+    adherence: adherence,
+    streak: streak,
+    longestStreak: longestStreak,
+    activeDays: activeDays,
+    restDays: restDays,
+    missedDays: missedDays,
+    futureDays: futureDays,
+    trainingDays: trainingDays,
+    topExercises: topExercises,
+    prsThisMonth: prsThisMonth,
+    routineFreq: routineFreq,
+    favoriteRoutine: favoriteRoutine,
+    workoutsByMonth: workoutsByMonth,
+    totalExercisesPerformed: totalExercisesPerformed,
+    muscleFreq: muscleFreq,
+    cardioSessions: cardioSessions,
+    cardioMinutes: cardioMinutes,
+    cardioDistance: cardioDistance,
+    avgCardioSpeed: cardioSpeedCount ? (cardioSpeedTotal / cardioSpeedCount) : 0,
+    avgCardioIncline: cardioInclineCount ? (cardioInclineTotal / cardioInclineCount) : 0,
+    avgExercisesPerWorkout: entries.length ? (totalExercisesPerformed / entries.length) : 0,
+    avgSetsPerExercise: totalExercisesPerformed ? (totalPlannedSets / totalExercisesPerformed) : 0,
+    completionPct: totalPlannedSets ? Math.round(totalSets / totalPlannedSets * 100) : 0,
+    avgRepsPerSet: repSetCount ? (totalReps / repSetCount) : 0,
+    avgWeightPerSet: weightedSetCount ? (totalWeight / weightedSetCount) : 0,
+    bestSet: bestSet,
+    heaviestLift: heaviestLift,
+    bestBodyweight: bestBodyweight,
+    bestAssist: bestAssist,
+    longestHold: longestHold,
+    avgHoldTime: timedDurationCount ? (timedDurationTotal / timedDurationCount) : 0,
+    skippedRoutineMap: skippedRoutineMap,
+    mostSkippedRoutine: mostSkippedRoutine,
+    weekdayMap: weekdayMap,
+    plannedVsCompleted: plannedVsCompleted
+  };
+}
+
+function renderTopExercisesList(topExercises) {
+  return topExercises.length ? '<div style="display:grid;gap:10px">' + topExercises.map(function(item, idx) {
     return '<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;background:var(--dark);border:1px solid var(--soft);border-radius:12px;padding:12px 14px">' +
       '<div><strong style="color:var(--blue)">#' + (idx + 1) + ' ' + escH(item.name) + '</strong><div class="small" style="color:var(--muted)">' + item.sessions + ' sessions · ' + item.completedSets + ' completed sets</div></div>' +
       '<div class="small" style="color:var(--muted);text-align:right">Volume ' + Math.round(item.totalVolume) + ' kg</div>' +
     '</div>';
   }).join('') + '</div>' : '<div class="empty-state">No exercise data yet.</div>';
-  var prsHTML = prsThisMonth.length ? '<div style="display:grid;gap:8px">' + prsThisMonth.map(function(text) {
+}
+
+function renderPRList(prsThisMonth) {
+  return prsThisMonth.length ? '<div style="display:grid;gap:8px">' + prsThisMonth.map(function(text) {
     return '<div style="background:var(--dark);border:1px solid var(--soft);border-radius:12px;padding:10px 12px;color:var(--text)">' + escH(text) + '</div>';
   }).join('') + '</div>' : '<div class="empty-state">No PRs this month yet.</div>';
+}
 
+function renderProgressDashboard(targetId, includeExplorerContext) {
+  var el = document.getElementById(targetId);
+  if (!el) return;
+  var data = getProgressAnalytics();
   el.innerHTML =
     '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px">' +
-      buildMiniStatCard('Total Workouts', entries.length, 'var(--green)') +
-      buildMiniStatCard('Current Streak', streak, 'var(--yellow)') +
-      buildMiniStatCard('Total Duration', totalDuration + ' min', 'var(--blue)') +
-      buildMiniStatCard('Total Sets', totalSets, 'var(--text)') +
-      buildMiniStatCard('Total Volume', Math.round(totalVolume) + ' kg', 'var(--red)') +
-      buildMiniStatCard('Adherence %', adherence + '%', 'var(--green)') +
+      buildMiniStatCard('Total Workouts', data.entries.length, 'var(--green)') +
+      buildMiniStatCard('Current Streak', data.streak, 'var(--yellow)') +
+      buildMiniStatCard('Total Duration', data.totalDuration + ' min', 'var(--blue)') +
+      buildMiniStatCard('Total Sets', data.totalSets, 'var(--text)') +
+      buildMiniStatCard('Total Volume', Math.round(data.totalVolume) + ' kg', 'var(--red)') +
+      buildMiniStatCard('Adherence %', data.adherence + '%', 'var(--green)') +
     '</div>' +
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px">' +
-      '<div><h3 style="margin:0 0 10px">Top 5 Exercises</h3>' + topExercisesHTML + '</div>' +
-      '<div><h3 style="margin:0 0 10px">PRs This Month</h3>' + prsHTML + '</div>' +
-    '</div>' +
-    '<div style="margin-top:18px"><h3 style="margin:0 0 10px">Weekly Trend Charts</h3><div style="display:flex;gap:12px;flex-wrap:wrap">' + weeklyHTML + '</div></div>';
+      '<div><h3 style="margin:0 0 10px">Top 5 Exercises</h3>' + renderTopExercisesList(data.topExercises) + '</div>' +
+      '<div><h3 style="margin:0 0 10px">PRs This Month</h3>' + renderPRList(data.prsThisMonth) + '</div>' +
+    '</div>';
 
   var sel = document.getElementById('progressExerciseSelect');
   if (sel) {
     var current = sel.value;
-    sel.innerHTML = names.length
-      ? names.map(function(name) { return '<option value="' + escH(name) + '">' + escH(name) + '</option>'; }).join('')
+    sel.innerHTML = data.names.length
+      ? data.names.map(function(name) { return '<option value="' + escH(name) + '">' + escH(name) + '</option>'; }).join('')
       : '<option value="">No exercise data</option>';
-    if (current && names.indexOf(current) !== -1) sel.value = current;
+    if (current && data.names.indexOf(current) !== -1) sel.value = current;
   }
-  renderExerciseExplorer();
 }
 
 function renderExerciseExplorer() {
   var el = document.getElementById('progressExerciseExplorer');
   var sel = document.getElementById('progressExerciseSelect');
   if (!el || !sel) return;
-  var entries = getCompletedLogsInRange();
-  var exerciseMap = collectExerciseStats(entries);
-  var item = exerciseMap[sel.value];
+  var data = getProgressAnalytics();
+  var item = data.exerciseMap[sel.value];
   if (!item) {
     el.innerHTML = '<div class="empty-state">No exercise data in the selected range.</div>';
     return;
@@ -2740,8 +2904,75 @@ function renderExerciseExplorer() {
   });
 }
 
-function renderConsistency() {
-  var el = document.getElementById('progressConsistency');
+function renderDetailedProgressStats() {
+  var el = document.getElementById('progressDetailedStats');
+  if (!el) return;
+  var data = getProgressAnalytics();
+  var routineRows = Object.keys(data.routineFreq).sort(function(a, b) {
+    return data.routineFreq[b] - data.routineFreq[a] || a.localeCompare(b);
+  }).slice(0, 6).map(function(name) {
+    return '<div class="small" style="display:flex;justify-content:space-between;gap:10px"><span>' + escH(name) + '</span><strong style="color:var(--text)">' + data.routineFreq[name] + '</strong></div>';
+  }).join('');
+  var muscleRows = Object.keys(data.muscleFreq).sort(function(a, b) {
+    return data.muscleFreq[b] - data.muscleFreq[a] || a.localeCompare(b);
+  }).slice(0, 6).map(function(name) {
+    return '<div class="small" style="display:flex;justify-content:space-between;gap:10px"><span>' + escH(name) + '</span><strong style="color:var(--text)">' + data.muscleFreq[name] + '</strong></div>';
+  }).join('');
+  var monthRows = Object.keys(data.workoutsByMonth).sort().slice(-6).map(function(month) {
+    return '<div class="small" style="display:flex;justify-content:space-between;gap:10px"><span>' + escH(month) + '</span><strong style="color:var(--text)">' + data.workoutsByMonth[month] + '</strong></div>';
+  }).join('');
+  el.innerHTML =
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px">' +
+      '<div class="card" style="background:var(--dark)"><h3>Workout Plan</h3>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Started vs Finished</span><strong style="color:var(--text)">' + data.allLogs.length + ' / ' + data.entries.length + '</strong></div>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Avg Duration</span><strong style="color:var(--text)">' + (data.entries.length ? Math.round(data.totalDuration / data.entries.length) : 0) + ' min</strong></div>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Favorite Routine</span><strong style="color:var(--text)">' + escH(data.favoriteRoutine) + '</strong></div>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Longest Streak</span><strong style="color:var(--text)">' + data.longestStreak + '</strong></div>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Missed Planned Workouts</span><strong style="color:var(--text)">' + Math.max(data.plannedVsCompleted.planned - data.plannedVsCompleted.completed, 0) + '</strong></div>' +
+        '<div style="margin-top:10px">' + (routineRows || '<div class="empty-state">No routine frequency data.</div>') + '</div>' +
+      '</div>' +
+      '<div class="card" style="background:var(--dark)"><h3>Exercise Stats</h3>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Total Exercises Performed</span><strong style="color:var(--text)">' + data.totalExercisesPerformed + '</strong></div>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Avg Exercises / Workout</span><strong style="color:var(--text)">' + data.avgExercisesPerWorkout.toFixed(1) + '</strong></div>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Avg Sets / Exercise</span><strong style="color:var(--text)">' + data.avgSetsPerExercise.toFixed(1) + '</strong></div>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Most Performed</span><strong style="color:var(--text)">' + escH((data.topExercises[0] || {}).name || '—') + '</strong></div>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Cardio vs Strength</span><strong style="color:var(--text)">' + data.cardioSessions + ' / ' + Math.max(data.totalExercisesPerformed - data.cardioSessions, 0) + '</strong></div>' +
+        '<div style="margin-top:10px">' + (muscleRows || '<div class="empty-state">No muscle-group data.</div>') + '</div>' +
+      '</div>' +
+      '<div class="card" style="background:var(--dark)"><h3>Set &amp; Volume</h3>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Planned vs Completed Sets</span><strong style="color:var(--text)">' + data.totalPlannedSets + ' / ' + data.totalSets + '</strong></div>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Completion %</span><strong style="color:var(--text)">' + data.completionPct + '%</strong></div>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Avg Reps / Set</span><strong style="color:var(--text)">' + data.avgRepsPerSet.toFixed(1) + '</strong></div>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Avg Weight / Set</span><strong style="color:var(--text)">' + data.avgWeightPerSet.toFixed(1) + ' kg</strong></div>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Best Set</span><strong style="color:var(--text)">' + escH(data.bestSet ? (data.bestSet.name + ' ' + data.bestSet.weight + 'x' + data.bestSet.reps) : '—') + '</strong></div>' +
+        '<div style="margin-top:10px">' + (monthRows || '<div class="empty-state">No monthly workout trend.</div>') + '</div>' +
+      '</div>' +
+      '<div class="card" style="background:var(--dark)"><h3>Strength &amp; Bodyweight</h3>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Heaviest Lift</span><strong style="color:var(--text)">' + escH(data.heaviestLift ? (data.heaviestLift.name + ' ' + data.heaviestLift.weight + ' kg') : '—') + '</strong></div>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Best Bodyweight Reps</span><strong style="color:var(--text)">' + escH(data.bestBodyweight ? (data.bestBodyweight.name + ' ' + data.bestBodyweight.reps) : '—') + '</strong></div>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Best Assist Reduction</span><strong style="color:var(--text)">' + escH(data.bestAssist ? (data.bestAssist.name + ' ' + data.bestAssist.assistWeight + ' kg') : '—') + '</strong></div>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Longest Hold</span><strong style="color:var(--text)">' + (data.longestHold ? data.longestHold + ' sec' : '—') + '</strong></div>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Avg Hold Time</span><strong style="color:var(--text)">' + data.avgHoldTime.toFixed(1) + ' sec</strong></div>' +
+      '</div>' +
+      '<div class="card" style="background:var(--dark)"><h3>Cardio</h3>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Cardio Sessions</span><strong style="color:var(--text)">' + data.cardioSessions + '</strong></div>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Total Cardio Minutes</span><strong style="color:var(--text)">' + data.cardioMinutes + '</strong></div>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Total Distance</span><strong style="color:var(--text)">' + data.cardioDistance.toFixed(2) + ' km</strong></div>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Avg Speed</span><strong style="color:var(--text)">' + (data.avgCardioSpeed ? data.avgCardioSpeed.toFixed(1) + ' km/h' : '—') + '</strong></div>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Avg Incline</span><strong style="color:var(--text)">' + (data.avgCardioIncline ? data.avgCardioIncline.toFixed(1) + '%' : '—') + '</strong></div>' +
+      '</div>' +
+      '<div class="card" style="background:var(--dark)"><h3>Consistency &amp; Planning</h3>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Active / Rest / Missed</span><strong style="color:var(--text)">' + data.activeDays + ' / ' + data.restDays + ' / ' + data.missedDays + '</strong></div>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Training Density</span><strong style="color:var(--text)">' + (data.range ? ((data.trainingDays / Math.max(getDateRangeDays(data.range.start, data.range.end).length, 1)) * 100).toFixed(1) : '0') + '%</strong></div>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Weekday vs Weekend</span><strong style="color:var(--text)">' + data.weekdayMap.Weekday + ' / ' + data.weekdayMap.Weekend + '</strong></div>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Planned vs Completed</span><strong style="color:var(--text)">' + data.plannedVsCompleted.planned + ' / ' + data.plannedVsCompleted.completed + '</strong></div>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Most Skipped Routine</span><strong style="color:var(--text)">' + escH(data.mostSkippedRoutine) + '</strong></div>' +
+      '</div>' +
+    '</div>';
+}
+
+function renderConsistency(targetId) {
+  var el = document.getElementById(targetId || 'overviewConsistency');
   if (!el) return;
   var logs = getDailyLogs();
   var meta = getDailyMeta();
@@ -2816,8 +3047,8 @@ function renderConsistency() {
     '<div style="margin-top:8px;font-size:11px;color:var(--muted)">Green = completed workouts, blue = rest days, red = missed days, gray = future days.</div>';
 }
 
-function renderWorkoutHistory() {
-  var el = document.getElementById('progressWorkoutHistory');
+function renderWorkoutHistory(targetId) {
+  var el = document.getElementById(targetId || 'progressWorkoutHistory');
   if (!el) return;
   var logs = getDailyLogs();
   var range = getProgressRange();
@@ -2885,8 +3116,8 @@ function deleteWorkoutLog(dateStr, logId) {
   renderCalendar();
 }
 
-function renderBodyMetrics() {
-  var el = document.getElementById('progressBodyMetrics');
+function renderBodyMetrics(targetId) {
+  var el = document.getElementById(targetId || 'progressBodyMetrics');
   if (!el) return;
   var meta = getDailyMeta();
   var range = getProgressRange();
@@ -2921,8 +3152,8 @@ function renderBodyMetrics() {
   });
 }
 
-function renderNutritionAverages() {
-  var el = document.getElementById('progressNutrition');
+function renderNutritionAverages(targetId) {
+  var el = document.getElementById(targetId || 'progressNutrition');
   if (!el) return;
   var meta = getDailyMeta();
   var range = getProgressRange();
