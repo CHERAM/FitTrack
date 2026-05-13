@@ -306,7 +306,6 @@
 <div class="tabs">
   <button class="tab active" onclick="showSection('overview',this)">Overview</button>
   <button class="tab" onclick="showSection('progress',this)">Progress</button>
-  <button class="tab" onclick="showSection('morning',this)">Morning</button>
   <button class="tab" onclick="showSection('diet',this)">Diet</button>
   <button class="tab" id="tab-daily-tracker" onclick="showSection('daily-tracker',this)">Daily Tracker</button>
   <button class="tab" id="tab-routines" onclick="showSection('routines',this)">Routines</button>
@@ -377,20 +376,10 @@
   </div>
 </section>
 
-<section id="morning" class="section">
-  <div class="card"><h2>Daily Morning Routine</h2><div class="note">This is skill practice. Do not train to failure.</div></div>
-  <div class="grid">
-    <div class="card"><h3>Warmup</h3><div class="exercise"><label>Arm Circles — 20 reps</label><input type="checkbox"></div><div class="exercise"><label>Shoulder Rotations — 20 reps</label><input type="checkbox"></div><div class="exercise"><label>Wrist Rotations — 20 reps</label><input type="checkbox"></div><div class="exercise"><label>Jumping Jacks — 30 reps</label><input type="checkbox"></div><div class="exercise"><label>Cat Cow Stretch — 10 reps</label><input type="checkbox"></div></div>
-    <div class="card"><h3>Chest</h3><div class="exercise"><label>Plank Hold — 3 × 30 sec</label><input type="checkbox"></div><div class="exercise"><label>Scapula Pushups — 3 × 10</label><input type="checkbox"></div><div class="exercise"><label>Negative Pushups — 3 × 5</label><input type="checkbox"></div><div class="exercise"><label>Incline Pushups — 3 × 10</label><input type="checkbox"></div><div class="exercise"><label>Knee Pushups — 2 × max reps</label><input type="checkbox"></div></div>
-    <div class="card"><h3>Lats / Upper Back</h3><div class="exercise"><label>Dead Hang — 3 × 20 sec</label><input type="checkbox"></div><div class="exercise"><label>Scapula Pullups — 3 × 8</label><input type="checkbox"></div><div class="exercise"><label>Band Pulldowns — 3 × 15</label><input type="checkbox"></div><div class="exercise"><label>Australian Rows — 3 × 10</label><input type="checkbox"></div><div class="exercise"><label>Negative Pullups — 3 × 3</label><input type="checkbox"></div></div>
-    <div class="card"><h3>Core</h3><div class="exercise"><label>Plank — 3 × 30 sec</label><input type="checkbox"></div><div class="exercise"><label>Leg Raises — 3 × 10</label><input type="checkbox"></div></div>
-  </div>
-</section>
-
-
 <section id="diet" class="section">
   <div class="diet-tabs">
     <button class="diet-tab active" onclick="showDietSection('diet-overview',this)">Overview</button>
+    <button class="diet-tab" onclick="showDietSection('preworkout',this)">Morning Pre Workout</button>
     <button class="diet-tab" onclick="showDietSection('breakfast',this)">Breakfast</button>
     <button class="diet-tab" onclick="showDietSection('middaysnack',this)">Mid Day Snacks</button>
     <button class="diet-tab" onclick="showDietSection('lunch',this)">Lunch</button>
@@ -409,6 +398,7 @@
         <table>
           <thead><tr><th>Meal</th><th>Calories</th><th>Protein</th><th>Carbs</th><th>Fat</th></tr></thead>
           <tbody>
+            <tr><td>Morning Pre Workout</td><td>80–120 kcal</td><td>0–2g</td><td>20–30g</td><td>0–1g</td></tr>
             <tr><td>Breakfast</td><td>500–650 kcal</td><td>25–40g</td><td>50–70g</td><td>10–18g</td></tr>
             <tr><td>Mid Day Snacks</td><td>150–250 kcal</td><td>8–15g</td><td>5–15g</td><td>5–12g</td></tr>
             <tr><td>Lunch</td><td>750–900 kcal</td><td>55–70g</td><td>70–100g</td><td>10–18g</td></tr>
@@ -420,6 +410,10 @@
         </table>
       </div>
     </div>
+  </div>
+
+  <div id="preworkout" class="diet-section">
+    <div class="card"><h2>Morning Before Workout</h2><div class="grid"><div class="meal"><h3>Option 1 — Simple</h3><p>Red banana — <span class="highlight">120g</span></p><p>Calories: ~120 kcal</p><p>Protein: ~1g</p><p>Carbs: ~30g</p><p>Fat: ~0g</p></div><div class="meal"><h3>Option 2 — Light</h3><p>Banana — <span class="highlight">100g</span></p><p>Black coffee — 0 kcal</p><p>Calories: ~90–100 kcal</p><p>Carbs: ~23g</p></div><div class="meal"><h3>Option 3 — No Food</h3><p>Water + black coffee</p><p>Calories: ~0 kcal</p><p class="small">Use this only if you feel comfortable training light in the morning.</p></div></div></div>
   </div>
 
   <div id="breakfast" class="diet-section">
