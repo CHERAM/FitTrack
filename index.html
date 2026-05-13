@@ -309,7 +309,7 @@
   <button class="tab" id="tab-workout-session" onclick="showSection('workout-session',this)">Workout</button>
   <button class="tab" id="tab-calendar" onclick="showSection('calendar',this)">Calendar</button>
   <button class="tab" onclick="showSection('progress',this)">Progress</button>
-  <button class="tab" onclick="showSection('diet',this)">Diet</button>
+  <button class="tab" id="tab-diet" onclick="showSection('diet',this)">Diet</button>
   <button class="tab" id="tab-settings" onclick="showSection('settings',this)">Settings</button>
 </div>
 
@@ -912,6 +912,11 @@ var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 var _sb = window.supabase ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON) : null;
 
 function showSection(id, btn) {
+  if (id === 'diet' && !canAccessDiet()) {
+    var dailyTrackerTab = document.getElementById('tab-daily-tracker');
+    if (dailyTrackerTab) showSection('daily-tracker', dailyTrackerTab);
+    return;
+  }
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -1023,6 +1028,20 @@ function saveGoals(d)  { localStorage.setItem(_k('ft_goals'), JSON.stringify(d))
 /* ---- Per-user storage namespace ---- */
 var ftSession = null; // set by initAuth()
 function _k(key) { return ftSession ? 'u_' + ftSession.userId + '_' + key : key; }
+function canAccessDiet() {
+  return !!(ftSession && (ftSession.email || '').toLowerCase() === 'checrc10@gmail.com');
+}
+function applyDietAccess() {
+  var dietTab = document.getElementById('tab-diet');
+  var dietSection = document.getElementById('diet');
+  var allowed = canAccessDiet();
+  if (dietTab) dietTab.style.display = allowed ? '' : 'none';
+  if (dietSection) dietSection.style.display = allowed ? '' : 'none';
+  if (!allowed && dietSection && dietSection.classList.contains('active')) {
+    var dailyTrackerTab = document.getElementById('tab-daily-tracker');
+    if (dailyTrackerTab) showSection('daily-tracker', dailyTrackerTab);
+  }
+}
 
 function getFolders()    { return JSON.parse(localStorage.getItem(_k('ft_folders'))   || '[]'); }
 function saveFolders(d)  { localStorage.setItem(_k('ft_folders'),   JSON.stringify(d)); _pushKeyToSupabase('ft_folders', d); }
@@ -3813,6 +3832,7 @@ function _appStart() {
   document.getElementById('authOverlay').classList.add('hidden');
   var el = document.getElementById('headerUsername');
   if (el && ftSession) el.textContent = '👤 ' + (ftSession.email || '').split('@')[0];
+  applyDietAccess();
   _pullAllFromSupabase().then(function() {
     ensureDefaultExerciseLibrary();
     bindDatePickers();
@@ -3862,6 +3882,7 @@ async function authRegister() {
 async function authLogout() {
   if (!_sb) {
     ftSession = null;
+    applyDietAccess();
     location.reload();
     return;
   }
@@ -3872,6 +3893,7 @@ async function authLogout() {
     return;
   }
   ftSession = null;
+  applyDietAccess();
   location.reload();
 }
 
