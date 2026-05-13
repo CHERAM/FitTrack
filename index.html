@@ -956,6 +956,10 @@ function loadState() {
     box.closest('.exercise')?.classList.toggle('done', box.checked);
   });
   updateProgress();
+  if (restoreActiveSession()) {
+    var workoutTab = document.getElementById('tab-workout-session');
+    if (workoutTab) showSection('workout-session', workoutTab);
+  }
 }
 
 function resetToday() {
@@ -1668,7 +1672,10 @@ function renderTrackerLoggedWorkout(logs) {
     return '<div style="background:var(--dark);border-radius:12px;padding:14px;border:1px solid var(--soft);' + (idx ? 'margin-top:10px' : '') + '">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
         '<strong>' + escH(log.routineName || 'Workout') + '</strong>' +
-        '<span style="color:' + statusColor + ';font-weight:bold;text-transform:capitalize">' + (log.status || '') + '</span>' +
+        '<div style="display:flex;align-items:center;gap:8px">' +
+          '<span style="color:' + statusColor + ';font-weight:bold;text-transform:capitalize">' + (log.status || '') + '</span>' +
+          '<button class="btn-sm btn-danger" onclick="deleteTrackerWorkoutLog(\'' + escH(trackerCurrentDate) + '\',\'' + escH(log.id || '') + '\')">Delete</button>' +
+        '</div>' +
       '</div>' +
       '<div class="small" style="margin-top:8px;display:flex;gap:16px;flex-wrap:wrap;color:var(--muted)">' +
         (durationMin > 0 ? '<span>⏱ ' + durationMin + ' min</span>' : '') +
@@ -1678,6 +1685,25 @@ function renderTrackerLoggedWorkout(logs) {
     '</div>';
   }).join('');
   section.style.display = 'block';
+}
+
+function deleteTrackerWorkoutLog(dateStr, logId) {
+  if (!confirm('Delete this logged workout?')) return;
+  var logs = getDailyLogs();
+  var dayLogs = _dailyLogList(logs[dateStr]);
+  dayLogs = dayLogs.filter(function(log) { return log.id !== logId; });
+  if (dayLogs.length) logs[dateStr] = dayLogs;
+  else delete logs[dateStr];
+  saveDailyLogs(logs);
+  if (sessionState.logId === logId) {
+    if (sessionState.timerInterval) clearInterval(sessionState.timerInterval);
+    clearActiveSessionCache();
+    sessionState = _emptySessionState();
+  }
+  renderTrackerLoggedWorkout(dayLogs);
+  refreshOverviewStats();
+  renderProgressPage();
+  renderCalendar();
 }
 
 function saveTrackerData() {
@@ -2242,9 +2268,115 @@ function saveRoutineEdits() {
    WORKOUT SESSION
    ============================================================ */
 
-var sessionState = { step: 1, date: null, routineId: null, logId: null, startTime: null, timerInterval: null, activeExercises: [] };
+var _activeSessionStorageKey = 'ft_activeSession';
+
+function _emptySessionState() {
+  return { step: 1, date: null, routineId: null, logId: null, startTime: null, timerInterval: null, activeExercises: [] };
+}
+
+var sessionState = _emptySessionState();
+
+function _sessionStorageKey() {
+  return _k(_activeSessionStorageKey);
+}
+
+function saveActiveSession() {
+  if (!sessionState.logId || !sessionState.startTime) return;
+  var payload = {
+    step: sessionState.step,
+    date: sessionState.date,
+    routineId: sessionState.routineId,
+    logId: sessionState.logId,
+    startTime: sessionState.startTime,
+    activeExercises: sessionState.activeExercises
+  };
+  localStorage.setItem(_sessionStorageKey(), JSON.stringify(payload));
+}
+
+function clearActiveSessionCache() {
+  localStorage.removeItem(_sessionStorageKey());
+}
+
+function _syncActiveSessionLog() {
+  if (!sessionState.logId || !sessionState.date) return;
+  var logs = getDailyLogs();
+  var dayLogs = _dailyLogList(logs[sessionState.date]);
+  var log = dayLogs.find(function(item) { return item.id === sessionState.logId && item.status === 'in_progress'; });
+  if (!log) return;
+  log.routineId = sessionState.routineId;
+  log.exercises = JSON.parse(JSON.stringify(sessionState.activeExercises || []));
+  logs[sessionState.date] = dayLogs;
+  localStorage.setItem(_k('ft_dailyLogs'), JSON.stringify(logs));
+}
+
+function persistActiveSession() {
+  if (!sessionState.logId || !sessionState.startTime) return;
+  _syncActiveSessionLog();
+  saveActiveSession();
+}
+
+function _findLatestInProgressLog() {
+  var logs = getDailyLogs();
+  var latest = null;
+  Object.keys(logs || {}).forEach(function(dateStr) {
+    _dailyLogList(logs[dateStr]).forEach(function(log) {
+      if (log.status !== 'in_progress') return;
+      var ts = log.startTime ? new Date(log.startTime).getTime() : 0;
+      if (!latest || ts > latest.ts) latest = { ts: ts, date: dateStr, log: log };
+    });
+  });
+  return latest;
+}
+
+function restoreActiveSession() {
+  if (sessionState.timerInterval || sessionState.logId) return;
+  var saved = null;
+  try { saved = JSON.parse(localStorage.getItem(_sessionStorageKey()) || 'null'); } catch (e) { saved = null; }
+  var match = null;
+  if (saved && saved.logId) {
+    var logs = getDailyLogs();
+    var dayLogs = _dailyLogList(logs[saved.date]);
+    var log = dayLogs.find(function(item) { return item.id === saved.logId && item.status === 'in_progress'; });
+    if (log) {
+      match = {
+        date: saved.date,
+        log: log,
+        step: saved.step || 4,
+        routineId: saved.routineId != null ? saved.routineId : log.routineId,
+        startTime: saved.startTime || (log.startTime ? new Date(log.startTime).getTime() : Date.now()),
+        activeExercises: saved.activeExercises && saved.activeExercises.length ? saved.activeExercises : (log.exercises || [])
+      };
+    }
+  }
+  if (!match) {
+    var latest = _findLatestInProgressLog();
+    if (!latest) {
+      clearActiveSessionCache();
+      return false;
+    }
+    match = {
+      date: latest.date,
+      log: latest.log,
+      step: 4,
+      routineId: latest.log.routineId || null,
+      startTime: latest.log.startTime ? new Date(latest.log.startTime).getTime() : Date.now(),
+      activeExercises: latest.log.exercises || []
+    };
+  }
+  sessionState = _emptySessionState();
+  sessionState.step = 4;
+  sessionState.date = match.date;
+  sessionState.routineId = match.routineId;
+  sessionState.logId = match.log.id;
+  sessionState.startTime = match.startTime;
+  sessionState.activeExercises = JSON.parse(JSON.stringify(match.activeExercises || []));
+  saveActiveSession();
+  startSessionTimer();
+  return true;
+}
 
 function initWorkoutSession() {
+  restoreActiveSession();
   if (sessionState.timerInterval) {
     sessionGoStep(sessionState.step);
     return;
@@ -2278,6 +2410,7 @@ function sessionGoStep(n) {
   } else if (n === 5) {
     renderSessionSummary();
   }
+  if (sessionState.timerInterval) saveActiveSession();
 }
 
 function sessionStep1Next() {
@@ -2462,6 +2595,7 @@ function startWorkout() {
   sessionState.startTime = Date.now();
   sessionState.activeExercises = JSON.parse(JSON.stringify(routine.exercises));
   _writeSessionLog(routineId, routine.name);
+  persistActiveSession();
   startSessionTimer();
   sessionGoStep(4);
 }
@@ -2473,6 +2607,7 @@ function startEmptyWorkout() {
   sessionState.startTime = Date.now();
   sessionState.activeExercises = [];
   _writeSessionLog(null, 'Empty Workout');
+  persistActiveSession();
   startSessionTimer();
   sessionGoStep(4);
 }
@@ -2493,6 +2628,7 @@ function _writeSessionLog(routineId, routineName) {
   logs[sessionState.date] = dayLogs;
   saveDailyLogs(logs);
   sessionState.logId = logEntry.id;
+  saveActiveSession();
 }
 
 function startSessionTimer() {
@@ -2576,9 +2712,12 @@ function renderActiveSession() {
         return '<div class="active-set-row' + (set.completed ? ' set-done' : '') + '" id="setrow-' + ei + '-' + si + '" style="grid-template-columns:' + col.grid + '">' +
           '<span style="color:var(--muted);font-size:13px;text-align:center">' + (si + 1) + '</span>' +
           inputs +
-          '<button class="set-done-btn' + (set.completed ? ' done' : '') + '" data-session="true" onclick="toggleSetComplete(' + ei + ',' + si + ',' + (!set.completed) + ')">' +
-            (set.completed ? '✓' : '○') +
-          '</button>' +
+          '<div style="display:flex;gap:4px;align-items:center;justify-content:center">' +
+            '<button class="set-done-btn' + (set.completed ? ' done' : '') + '" data-session="true" onclick="toggleSetComplete(' + ei + ',' + si + ',' + (!set.completed) + ')">' +
+              (set.completed ? '✓' : '○') +
+            '</button>' +
+            '<button class="btn-sm btn-danger" data-session="true" onclick="sessionRemoveSetLive(' + ei + ',' + si + ')" title="Remove set" style="padding:4px 8px;min-width:auto">✕</button>' +
+          '</div>' +
         '</div>';
       }).join('');
 
@@ -2607,6 +2746,7 @@ function sessionSetVal(ei, si, key, val) {
   if (!sessionState.activeExercises[ei]) return;
   var n = parseFloat(val);
   sessionState.activeExercises[ei].sets[si][key] = isNaN(n) ? null : n;
+  persistActiveSession();
   updateSessionStats();
 }
 
@@ -2619,6 +2759,15 @@ function sessionAddSetLive(ei) {
   var newSet = buildSetFromColumns(cols, lastSet, true);
   ex.sets = ex.sets || [];
   ex.sets.push(newSet);
+  persistActiveSession();
+  renderActiveSession();
+}
+
+function sessionRemoveSetLive(ei, si) {
+  var ex = sessionState.activeExercises[ei];
+  if (!ex || ex.type === 'cardio' || !ex.sets || !ex.sets[si]) return;
+  ex.sets.splice(si, 1);
+  persistActiveSession();
   renderActiveSession();
 }
 
@@ -2631,6 +2780,7 @@ function toggleSetComplete(ei, si, checked) {
     if (ex.sets[si]) ex.sets[si].completed = checked;
   }
   // Re-render just this card by full re-render (sets may need recount)
+  persistActiveSession();
   renderActiveSession();
 }
 
@@ -2678,9 +2828,12 @@ function finishWorkout() {
   log.exercises = sessionState.activeExercises;
   logs[dateStr] = dayLogs;
   saveDailyLogs(logs);
-  renderProgressPage();
-  renderCalendar();
+  clearActiveSessionCache();
   sessionGoStep(5);
+  setTimeout(function() {
+    renderProgressPage();
+    renderCalendar();
+  }, 0);
 }
 
 function renderSessionSummary() {
@@ -2725,13 +2878,15 @@ function discardWorkout() {
     else delete logs[sessionState.date];
     saveDailyLogs(logs);
   }
-  sessionState = { step: 1, date: null, routineId: null, logId: null, startTime: null, timerInterval: null, activeExercises: [] };
+  clearActiveSessionCache();
+  sessionState = _emptySessionState();
   sessionGoStep(1);
 }
 
 function sessionReset() {
   if (sessionState.timerInterval) clearInterval(sessionState.timerInterval);
-  sessionState = { step: 1, date: null, routineId: null, logId: null, startTime: null, timerInterval: null, activeExercises: [] };
+  clearActiveSessionCache();
+  sessionState = _emptySessionState();
   sessionGoStep(1);
 }
 
@@ -2786,6 +2941,7 @@ function addSessionExerciseFromLibrary(libId) {
   var ex = getExercises().find(function(e){ return e.id === libId; });
   if (!ex) return;
   sessionState.activeExercises.push(_makeSessionExercise(ex.name, ex.type, ex.muscleGroup, ex.trackingMode));
+  persistActiveSession();
   renderActiveSession();
   closeSessionExercisePicker();
 }
@@ -2798,6 +2954,7 @@ function addSessionExerciseQuick() {
     addExerciseToLibraryIfMissing(name, type, '', getDefaultTrackingMode(type));
   }
   sessionState.activeExercises.push(_makeSessionExercise(name, type, '', getDefaultTrackingMode(type)));
+  persistActiveSession();
   renderActiveSession();
   closeSessionExercisePicker();
 }
