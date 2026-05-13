@@ -196,6 +196,29 @@
   .tracker-routine-chip{display:flex;justify-content:space-between;align-items:center;padding:9px 13px;background:var(--dark);border-radius:10px;margin-bottom:7px;border:1px solid var(--soft);}
   .tracker-routine-chip .chip-label{font-weight:bold;font-size:14px;}
   .tracker-routine-chip .chip-status{font-size:12px;padding:3px 9px;border-radius:999px;}
+  .routine-picker{position:relative;display:grid;gap:6px;}
+  .routine-picker-launch{width:100%;display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border:1px solid var(--soft);border-radius:12px;background:rgba(2,6,23,.45);color:var(--text);cursor:pointer;transform:none!important;}
+  .routine-picker-launch:hover{background:rgba(255,255,255,.03);color:var(--text);transform:none!important;}
+  .routine-picker-launch .meta{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;text-align:left;}
+  .routine-picker-launch .meta span{font-size:12px;color:var(--muted);}
+  .routine-picker-launch .meta strong{font-size:14px;color:var(--text);}
+  .routine-picker-launch .chev{color:var(--muted);font-size:18px;line-height:1;}
+  .routine-picker-panel{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:30;display:grid;gap:0;border:1px solid var(--soft);border-radius:12px;background:#182235;box-shadow:0 10px 24px rgba(0,0,0,.28);overflow:hidden;max-height:240px;overflow-y:auto;}
+  .routine-picker-summary{padding:8px 12px;color:var(--muted);font-size:11px;border-bottom:1px solid rgba(51,65,85,.45);}
+  .routine-picker-summary strong{color:var(--text);font-size:12px;}
+  .routine-picker-group{display:grid;}
+  .routine-picker-group + .routine-picker-group{border-top:1px solid rgba(51,65,85,.45);}
+  .routine-picker-group-title{padding:8px 12px 4px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
+  .routine-picker-folder-btn{width:100%;display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border:0;background:rgba(255,255,255,.03);color:var(--muted);cursor:pointer;font-weight:700;font-size:11px;letter-spacing:.08em;text-transform:uppercase;border-radius:0;transform:none!important;}
+  .routine-picker-folder-btn:hover{background:rgba(255,255,255,.05);color:var(--text);transform:none!important;}
+  .routine-picker-folder-btn .folder-label{display:inline-flex;align-items:center;gap:8px;}
+  .routine-picker-folder-btn .folder-label::before{content:"Folder";display:inline-block;padding:2px 6px;border:1px solid rgba(148,163,184,.28);border-radius:999px;font-size:9px;letter-spacing:.08em;color:var(--muted);}
+  .routine-picker-folder-btn .toggle{color:var(--muted);font-size:14px;line-height:1;}
+  .routine-picker-list{display:grid;}
+  .routine-picker-option{width:100%;text-align:left;padding:10px 12px;border:0;border-top:1px solid rgba(51,65,85,.35);border-radius:0;background:transparent;color:var(--text);cursor:pointer;transform:none!important;font-size:14px;font-weight:600;}
+  .routine-picker-option:hover{background:rgba(56,189,248,.08);border-color:rgba(56,189,248,.45);color:var(--text);transform:none!important;}
+  .routine-picker-option.active{background:rgba(56,189,248,.14)!important;color:var(--blue)!important;box-shadow:inset 3px 0 0 rgba(56,189,248,.65);}
+  .routine-picker-option small{display:block;color:var(--muted);font-size:11px;margin-top:2px;}
   .consistency-viz{display:grid;grid-template-columns:220px 1fr;gap:18px;align-items:center;margin-top:8px;}
   .consistency-donut{width:180px;height:180px;border-radius:50%;position:relative;margin:auto;}
   .consistency-donut::after{content:'';position:absolute;inset:24px;border-radius:50%;background:var(--card);border:1px solid var(--soft);}
@@ -2267,6 +2290,7 @@ function getTrackerPlannedRoutineIdsForDate(dateStr) {
 }
 
 var _sessionRoutineFolderOpen = {};
+var _sessionRoutinePickerOpen = false;
 
 function _getSessionRoutineValue() {
   var input = document.getElementById('sessionRoutine');
@@ -2283,11 +2307,25 @@ function toggleSessionRoutineFolder(folderId) {
   populateSessionRoutines();
 }
 
+function toggleSessionRoutinePicker(forceOpen) {
+  _sessionRoutinePickerOpen = typeof forceOpen === 'boolean' ? forceOpen : !_sessionRoutinePickerOpen;
+  populateSessionRoutines();
+}
+
 function selectSessionRoutine(routineId) {
   _setSessionRoutineValue(routineId);
+  _sessionRoutinePickerOpen = false;
   populateSessionRoutines();
   renderSessionRoutinePreview();
 }
+
+document.addEventListener('mousedown', function(event) {
+  if (!_sessionRoutinePickerOpen) return;
+  var target = event.target && event.target.nodeType === 3 ? event.target.parentElement : event.target;
+  if (target && target.closest && target.closest('#sessionRoutinePicker')) return;
+  _sessionRoutinePickerOpen = false;
+  populateSessionRoutines();
+});
 
 function populateSessionRoutines() {
   var picker = document.getElementById('sessionRoutinePicker');
@@ -2295,41 +2333,60 @@ function populateSessionRoutines() {
   var folders = getFolders();
   var routines = getRoutines();
   var selectedRoutineId = _getSessionRoutineValue();
+  var selectedRoutine = selectedRoutineId ? routines.find(function(r) { return r.id === selectedRoutineId; }) : null;
   var plannedIds = getTrackerPlannedRoutineIdsForDate(sessionState.date);
   var plannedSet = new Set(plannedIds);
   var plannedRoutines = plannedIds.map(function(id) {
     return routines.find(function(r) { return r.id === id; });
   }).filter(Boolean);
-  var html = '<div class="small" style="color:var(--muted)">Select a routine below</div>';
+  var html = '<div class="routine-picker">' +
+    '<button type="button" class="routine-picker-launch" onclick="toggleSessionRoutinePicker()">' +
+      '<div class="meta"><span>Routine selector</span><strong>' + escH(selectedRoutine ? selectedRoutine.name : 'Select routine') + '</strong></div>' +
+      '<span class="chev">' + (_sessionRoutinePickerOpen ? '−' : '+') + '</span>' +
+    '</button>';
 
-  if (plannedRoutines.length) {
-    html += '<div style="border:1px solid var(--soft);border-radius:12px;background:var(--dark);overflow:hidden">' +
-      '<div style="padding:10px 12px;font-weight:bold;color:var(--text);border-bottom:1px solid var(--soft)">Planned for this day</div>' +
-      plannedRoutines.map(function(r) {
-        var active = selectedRoutineId === r.id;
-        return '<button type="button" onclick="selectSessionRoutine(\'' + r.id + '\')" style="width:100%;text-align:left;padding:10px 12px;border:0;border-top:1px solid var(--soft);background:' + (active ? 'rgba(56,189,248,.14)' : 'transparent') + ';color:' + (active ? 'var(--blue)' : 'var(--text)') + ';cursor:pointer">' + escH(r.name) + '</button>';
-      }).join('') +
-    '</div>';
+  if (_sessionRoutinePickerOpen) {
+    html += '<div class="routine-picker-panel">' +
+      ((selectedRoutine || plannedRoutines.length) ? '<div class="routine-picker-summary">' +
+        (selectedRoutine ? 'Selected: <strong>' + escH(selectedRoutine.name) + '</strong>' : '') +
+        (selectedRoutine && plannedRoutines.length ? ' • ' : '') +
+        (plannedRoutines.length ? plannedRoutines.length + ' planned today' : '') +
+      '</div>' : '');
+
+    if (plannedRoutines.length) {
+      html += '<div class="routine-picker-group">' +
+        '<div class="routine-picker-group-title">Planned for this day</div>' +
+        '<div class="routine-picker-list">' +
+        plannedRoutines.map(function(r) {
+          var active = selectedRoutineId === r.id;
+          return '<button type="button" class="routine-picker-option' + (active ? ' active' : '') + '" onclick="selectSessionRoutine(\'' + r.id + '\')">' + escH(r.name) + '<small>Planned in Daily Tracker</small></button>';
+        }).join('') +
+        '</div>' +
+      '</div>';
+    }
+
+    html += folders.map(function(f) {
+      var fRoutines = routines.filter(function(r) {
+        return r.folderId === f.id && !plannedSet.has(r.id);
+      });
+      if (!fRoutines.length) return '';
+      var hasSelected = fRoutines.some(function(r) { return r.id === selectedRoutineId; });
+      var isOpen = !!_sessionRoutineFolderOpen[f.id] || hasSelected;
+      return '<div class="routine-picker-group">' +
+        '<button type="button" class="routine-picker-folder-btn" onclick="toggleSessionRoutineFolder(\'' + f.id + '\')">' +
+          '<span class="folder-label">' + escH(f.name) + '</span><span class="toggle">' + (isOpen ? '−' : '+') + '</span>' +
+        '</button>' +
+        (isOpen ? '<div class="routine-picker-list">' + fRoutines.map(function(r) {
+          var active = selectedRoutineId === r.id;
+          return '<button type="button" class="routine-picker-option' + (active ? ' active' : '') + '" onclick="selectSessionRoutine(\'' + r.id + '\')">' + escH(r.name) + '</button>';
+        }).join('') + '</div>' : '') +
+      '</div>';
+    }).join('');
+
+    html += '</div>';
   }
 
-  html += folders.map(function(f) {
-    var fRoutines = routines.filter(function(r) {
-      return r.folderId === f.id && !plannedSet.has(r.id);
-    });
-    if (!fRoutines.length) return '';
-    var hasSelected = fRoutines.some(function(r) { return r.id === selectedRoutineId; });
-    var isOpen = !!_sessionRoutineFolderOpen[f.id] || hasSelected;
-    return '<div style="border:1px solid var(--soft);border-radius:12px;background:var(--dark);overflow:hidden">' +
-      '<button type="button" onclick="toggleSessionRoutineFolder(\'' + f.id + '\')" style="width:100%;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:0;background:transparent;color:var(--text);cursor:pointer;font-weight:bold">' +
-        '<span>' + escH(f.name) + '</span><span style="color:var(--muted)">' + (isOpen ? '−' : '+') + '</span>' +
-      '</button>' +
-      (isOpen ? '<div style="border-top:1px solid var(--soft)">' + fRoutines.map(function(r) {
-        var active = selectedRoutineId === r.id;
-        return '<button type="button" onclick="selectSessionRoutine(\'' + r.id + '\')" style="width:100%;text-align:left;padding:10px 12px;border:0;border-top:1px solid var(--soft);background:' + (active ? 'rgba(56,189,248,.14)' : 'transparent') + ';color:' + (active ? 'var(--blue)' : 'var(--text)') + ';cursor:pointer">' + escH(r.name) + '</button>';
-      }).join('') + '</div>' : '') +
-    '</div>';
-  }).join('');
-
+  html += '</div>';
   picker.innerHTML = html;
 }
 
