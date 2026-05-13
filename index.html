@@ -293,13 +293,6 @@
       <button class="btn-sm" onclick="authLogout()" style="font-size:12px;padding:6px 14px">Logout</button>
     </div>
   </div>
-  <p class="subtitle">Morning calisthenics, night gym, diet tabs, and searchable food macro database</p>
-  <div class="stats">
-    <div class="stat empty" id="statCardWeight"><strong id="headerStatWeight">--</strong><span>Latest Weight</span></div>
-    <div class="stat empty" id="statCardBodyFat"><strong id="headerStatBodyFat">--</strong><span>Latest Body Fat</span></div>
-    <div class="stat empty" id="statCardProtein"><strong id="headerStatProtein">--</strong><span>Latest Protein</span></div>
-    <div class="stat empty" id="statCardCalories"><strong id="headerStatCalories">--</strong><span>Latest Calories</span></div>
-  </div>
 </header>
 
 <!-- Main navigation tabs -->
@@ -316,6 +309,12 @@
 <section id="progress" class="section">
   <div class="card">
     <h2>Progress</h2>
+    <div class="stats" style="margin-bottom:18px">
+      <div class="stat empty" id="progressStatCardWeight"><strong id="progressStatWeight">--</strong><span>Latest Weight</span></div>
+      <div class="stat empty" id="progressStatCardBodyFat"><strong id="progressStatBodyFat">--</strong><span>Latest Body Fat</span></div>
+      <div class="stat empty" id="progressStatCardProtein"><strong id="progressStatProtein">--</strong><span>Latest Protein</span></div>
+      <div class="stat empty" id="progressStatCardCalories"><strong id="progressStatCalories">--</strong><span>Latest Calories</span></div>
+    </div>
     <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:18px">
       <div class="form-group" style="margin:0">
         <label>Start Date</label>
@@ -1165,8 +1164,8 @@ function refreshOverviewStats() {
     ['Protein', latest.protein],
     ['Calories', latest.calories]
   ].forEach(function(pair) {
-    var textEl = document.getElementById('headerStat' + pair[0]);
-    var cardEl = document.getElementById('statCard' + pair[0]);
+    var textEl = document.getElementById('progressStat' + pair[0]);
+    var cardEl = document.getElementById('progressStatCard' + pair[0]);
     if (!textEl || !cardEl) return;
     textEl.textContent = pair[1] || '--';
     cardEl.classList.toggle('empty', !pair[1]);
