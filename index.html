@@ -600,7 +600,8 @@
       <h3>Step 2 — Select Routine</h3>
       <div class="form-group">
         <label>Routine</label>
-        <select id="sessionRoutine" onchange="renderSessionRoutinePreview()"></select>
+        <input type="hidden" id="sessionRoutine" value="">
+        <div id="sessionRoutinePicker" style="display:grid;gap:8px"></div>
       </div>
       <div id="sessionPreviewStep2" style="margin-bottom:14px"></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -2258,12 +2259,6 @@ function sessionStep1Next() {
   sessionState.date = dateVal;
   sessionGoStep(2);
 }
-function sessionStep2Next() {
-  var routineId = document.getElementById('sessionRoutine').value;
-  if (!routineId) { alert('Please select a routine.'); return; }
-  sessionState.routineId = routineId;
-  sessionGoStep(3);
-}
 
 function getTrackerPlannedRoutineIdsForDate(dateStr) {
   if (!dateStr) return [];
@@ -2271,48 +2266,75 @@ function getTrackerPlannedRoutineIdsForDate(dateStr) {
   return (meta.plannedRoutines || []).map(function(r) { return r.id; }).filter(Boolean);
 }
 
+var _sessionRoutineFolderOpen = {};
+
+function _getSessionRoutineValue() {
+  var input = document.getElementById('sessionRoutine');
+  return input ? input.value : '';
+}
+
+function _setSessionRoutineValue(routineId) {
+  var input = document.getElementById('sessionRoutine');
+  if (input) input.value = routineId || '';
+}
+
+function toggleSessionRoutineFolder(folderId) {
+  _sessionRoutineFolderOpen[folderId] = !_sessionRoutineFolderOpen[folderId];
+  populateSessionRoutines();
+}
+
+function selectSessionRoutine(routineId) {
+  _setSessionRoutineValue(routineId);
+  populateSessionRoutines();
+  renderSessionRoutinePreview();
+}
+
 function populateSessionRoutines() {
-  var sel = document.getElementById('sessionRoutine');
+  var picker = document.getElementById('sessionRoutinePicker');
+  if (!picker) return;
   var folders = getFolders();
   var routines = getRoutines();
+  var selectedRoutineId = _getSessionRoutineValue();
   var plannedIds = getTrackerPlannedRoutineIdsForDate(sessionState.date);
   var plannedSet = new Set(plannedIds);
   var plannedRoutines = plannedIds.map(function(id) {
     return routines.find(function(r) { return r.id === id; });
   }).filter(Boolean);
-  sel.innerHTML = '<option value="">-- Select Routine --</option>';
+  var html = '<div class="small" style="color:var(--muted)">Select a routine below</div>';
 
   if (plannedRoutines.length) {
-    var plannedGroup = document.createElement('optgroup');
-    plannedGroup.label = 'Planned for this day';
-    plannedRoutines.forEach(function(r) {
-      var opt = document.createElement('option');
-      opt.value = r.id;
-      opt.textContent = r.name;
-      plannedGroup.appendChild(opt);
-    });
-    sel.appendChild(plannedGroup);
+    html += '<div style="border:1px solid var(--soft);border-radius:12px;background:var(--dark);overflow:hidden">' +
+      '<div style="padding:10px 12px;font-weight:bold;color:var(--text);border-bottom:1px solid var(--soft)">Planned for this day</div>' +
+      plannedRoutines.map(function(r) {
+        var active = selectedRoutineId === r.id;
+        return '<button type="button" onclick="selectSessionRoutine(\'' + r.id + '\')" style="width:100%;text-align:left;padding:10px 12px;border:0;border-top:1px solid var(--soft);background:' + (active ? 'rgba(56,189,248,.14)' : 'transparent') + ';color:' + (active ? 'var(--blue)' : 'var(--text)') + ';cursor:pointer">' + escH(r.name) + '</button>';
+      }).join('') +
+    '</div>';
   }
 
-  folders.forEach(function(f) {
+  html += folders.map(function(f) {
     var fRoutines = routines.filter(function(r) {
       return r.folderId === f.id && !plannedSet.has(r.id);
     });
-    if (!fRoutines.length) return;
-    var grp = document.createElement('optgroup');
-    grp.label = plannedRoutines.length ? 'All Routines — ' + f.name : f.name;
-    fRoutines.forEach(function(r) {
-      var opt = document.createElement('option');
-      opt.value = r.id;
-      opt.textContent = r.name;
-      grp.appendChild(opt);
-    });
-    sel.appendChild(grp);
-  });
+    if (!fRoutines.length) return '';
+    var hasSelected = fRoutines.some(function(r) { return r.id === selectedRoutineId; });
+    var isOpen = !!_sessionRoutineFolderOpen[f.id] || hasSelected;
+    return '<div style="border:1px solid var(--soft);border-radius:12px;background:var(--dark);overflow:hidden">' +
+      '<button type="button" onclick="toggleSessionRoutineFolder(\'' + f.id + '\')" style="width:100%;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:0;background:transparent;color:var(--text);cursor:pointer;font-weight:bold">' +
+        '<span>' + escH(f.name) + '</span><span style="color:var(--muted)">' + (isOpen ? '−' : '+') + '</span>' +
+      '</button>' +
+      (isOpen ? '<div style="border-top:1px solid var(--soft)">' + fRoutines.map(function(r) {
+        var active = selectedRoutineId === r.id;
+        return '<button type="button" onclick="selectSessionRoutine(\'' + r.id + '\')" style="width:100%;text-align:left;padding:10px 12px;border:0;border-top:1px solid var(--soft);background:' + (active ? 'rgba(56,189,248,.14)' : 'transparent') + ';color:' + (active ? 'var(--blue)' : 'var(--text)') + ';cursor:pointer">' + escH(r.name) + '</button>';
+      }).join('') + '</div>' : '') +
+    '</div>';
+  }).join('');
+
+  picker.innerHTML = html;
 }
 
 function renderSessionRoutinePreview() {
-  var routineId = document.getElementById('sessionRoutine').value;
+  var routineId = _getSessionRoutineValue();
   var container = document.getElementById('sessionPreviewStep2');
   var plannedCount = getTrackerPlannedRoutineIdsForDate(sessionState.date).length;
   if (!routineId) {
@@ -2325,6 +2347,13 @@ function renderSessionRoutinePreview() {
   if (!routine) return;
   container.innerHTML = '<div class="small" style="color:var(--muted);margin-top:6px">' +
     (plannedCount ? plannedCount + ' planned for this day · ' : '') + routine.exercises.length + ' exercise(s)</div>';
+}
+
+function sessionStep2Next() {
+  var routineId = _getSessionRoutineValue();
+  if (!routineId) { alert('Please select a routine.'); return; }
+  sessionState.routineId = routineId;
+  sessionGoStep(3);
 }
 
 function renderSessionFullPreview() {
