@@ -1959,6 +1959,10 @@ function buildExerciseEditorHTML(ex, idx) {
   var muscleGroupOptions = '<option value="">Muscle group</option>' + groups.map(function(g) {
     return '<option value="' + escH(g) + '"' + (ex.muscleGroup === g ? ' selected' : '') + '>' + escH(g) + '</option>';
   }).join('') + '<option value="__custom__"' + (useCustomMuscleGroup ? ' selected' : '') + '>Custom...</option>';
+  var trackingMode = getExerciseTrackingMode(ex);
+  var trackingModeOptions = ex.type === 'cardio' ? '' : getTrackingModeOptions(ex.type).map(function(opt) {
+    return '<option value="' + opt.value + '"' + (trackingMode === opt.value ? ' selected' : '') + '>' + opt.label + '</option>';
+  }).join('');
 
   var setsHTML = '';
   if (ex.type === 'cardio') {
@@ -1972,7 +1976,7 @@ function buildExerciseEditorHTML(ex, idx) {
       cardioField(idx, 'calories',   'Target Calories', c.calories)  +
     '</div>';
   } else {
-    var cols = getSetColumns(ex.type);
+    var cols = getSetColumns(ex);
     var thead = '<th>#</th>' + cols.map(function(c) { return '<th>' + c.label + '</th>'; }).join('') + '<th></th>';
     var tbody = (ex.sets || []).map(function(set, si) {
       var cells = cols.map(function(c) {
@@ -1992,6 +1996,7 @@ function buildExerciseEditorHTML(ex, idx) {
       '<input class="ex-input" type="text" placeholder="Exercise name" value="' + escH(ex.name || '') +
         '" oninput="editorExChange(' + idx + ',\'name\',this.value)" style="flex:1;min-width:140px">' +
       '<select class="ex-input" onchange="editorExChangeType(' + idx + ',this.value)">' + typeOptions + '</select>' +
+      (ex.type !== 'cardio' ? '<select class="ex-input" onchange="editorExChangeTrackingMode(' + idx + ',this.value)">' + trackingModeOptions + '</select>' : '') +
       '<select class="ex-input" onchange="editorExChangeMuscleGroupMode(' + idx + ',this.value)" style="width:150px">' + muscleGroupOptions + '</select>' +
       '<input class="ex-input" id="editorMuscleCustom-' + idx + '" type="text" placeholder="New muscle group" value="' + escH(useCustomMuscleGroup ? ex.muscleGroup : '') +
         '" oninput="editorExChange(' + idx + ',\'muscleGroup\',this.value)" style="width:150px;' + (useCustomMuscleGroup ? '' : 'display:none;') + '">' +
@@ -2022,15 +2027,62 @@ function cardioField(idx, key, label, val) {
     '" oninput="editorCardioChange(' + idx + ',\'' + key + '\',this.value)"></div>';
 }
 
-function getSetColumns(type) {
-  var map = {
-    weight_training:     [{ key: 'reps', label: 'Reps' }, { key: 'weight', label: 'Weight (kg)' }],
-    bodyweight:          [{ key: 'reps', label: 'Reps' }],
-    assisted_bodyweight: [{ key: 'reps', label: 'Reps' }, { key: 'assistWeight', label: 'Assist (kg)' }],
-    timed:               [{ key: 'duration', label: 'Duration (s)' }],
-    mobility:            [{ key: 'duration', label: 'Duration (s)' }]
+function getDefaultTrackingMode(type) {
+  switch (type) {
+    case 'weight_training':     return 'reps_weight';
+    case 'assisted_bodyweight': return 'reps_assist';
+    case 'timed':
+    case 'mobility':            return 'duration';
+    case 'bodyweight':          return 'reps';
+    default:                    return 'reps';
+  }
+}
+
+function getExerciseTrackingMode(ex) {
+  return (ex && ex.trackingMode) || getDefaultTrackingMode(ex ? ex.type : '');
+}
+
+function getTrackingModeOptions(type) {
+  var all = {
+    reps:        { value: 'reps', label: 'Tracking: Reps' },
+    duration:    { value: 'duration', label: 'Tracking: Duration' },
+    sets_only:   { value: 'sets_only', label: 'Tracking: Sets Only' },
+    reps_weight: { value: 'reps_weight', label: 'Tracking: Reps + Weight' },
+    reps_assist: { value: 'reps_assist', label: 'Tracking: Reps + Assist' }
   };
-  return map[type] || [{ key: 'reps', label: 'Reps' }];
+  var allowed = {
+    weight_training:     ['reps_weight', 'reps', 'duration', 'sets_only'],
+    bodyweight:          ['reps', 'duration', 'sets_only'],
+    assisted_bodyweight: ['reps_assist', 'reps', 'duration', 'sets_only'],
+    timed:               ['duration', 'reps', 'sets_only'],
+    mobility:            ['duration', 'reps', 'sets_only']
+  };
+  return (allowed[type] || ['reps']).map(function(key) { return all[key]; });
+}
+
+function getSetColumns(exOrType, trackingMode) {
+  var mode = trackingMode;
+  if (typeof exOrType === 'object' && exOrType) {
+    mode = getExerciseTrackingMode(exOrType);
+  } else if (!mode) {
+    mode = getDefaultTrackingMode(exOrType);
+  }
+  var map = {
+    reps_weight: [{ key: 'reps', label: 'Reps' }, { key: 'weight', label: 'Weight (kg)' }],
+    reps_assist: [{ key: 'reps', label: 'Reps' }, { key: 'assistWeight', label: 'Assist (kg)' }],
+    reps:        [{ key: 'reps', label: 'Reps' }],
+    duration:    [{ key: 'duration', label: 'Duration (s)' }],
+    sets_only:   []
+  };
+  return map[mode] || [{ key: 'reps', label: 'Reps' }];
+}
+
+function buildSetFromColumns(cols, sourceSet, includeCompleted) {
+  var nextSet = includeCompleted ? { completed: !!(sourceSet && sourceSet.completed) } : {};
+  cols.forEach(function(c) {
+    nextSet[c.key] = sourceSet && sourceSet[c.key] != null ? sourceSet[c.key] : null;
+  });
+  return nextSet;
 }
 
 function editorExChange(idx, key, val) {
@@ -2055,10 +2107,21 @@ function editorExChangeType(idx, newType) {
   _editorExercises[idx].type = newType;
   if (newType === 'cardio') {
     _editorExercises[idx].cardioProps = _editorExercises[idx].cardioProps || {};
-    if (!_editorExercises[idx].sets) delete _editorExercises[idx].sets;
+    delete _editorExercises[idx].sets;
   } else {
-    _editorExercises[idx].sets = _editorExercises[idx].sets || [];
+    _editorExercises[idx].trackingMode = getDefaultTrackingMode(newType);
+    _editorExercises[idx].sets = (_editorExercises[idx].sets || []).map(function(set) {
+      return buildSetFromColumns(getSetColumns(_editorExercises[idx]), set, false);
+    });
   }
+  renderRoutineEditor();
+}
+function editorExChangeTrackingMode(idx, trackingMode) {
+  if (!_editorExercises[idx]) return;
+  _editorExercises[idx].trackingMode = trackingMode;
+  _editorExercises[idx].sets = (_editorExercises[idx].sets || []).map(function(set) {
+    return buildSetFromColumns(getSetColumns(_editorExercises[idx]), set, false);
+  });
   renderRoutineEditor();
 }
 function editorCardioChange(idx, key, val) {
@@ -2073,9 +2136,8 @@ function editorSetChange(idx, si, key, val) {
 }
 function editorAddSet(idx) {
   if (!_editorExercises[idx]) return;
-  var cols = getSetColumns(_editorExercises[idx].type);
-  var newSet = {};
-  cols.forEach(function(c) { newSet[c.key] = null; });
+  var cols = getSetColumns(_editorExercises[idx]);
+  var newSet = buildSetFromColumns(cols, null, false);
   _editorExercises[idx].sets = _editorExercises[idx].sets || [];
   _editorExercises[idx].sets.push(newSet);
   renderRoutineEditor();
@@ -2144,7 +2206,7 @@ function editorDropExercise(idx, event) {
 function exerciseLibraryKey(name, type, muscleGroup) {
   return [(name || '').trim().toLowerCase(), type || '', (muscleGroup || '').trim().toLowerCase()].join('||');
 }
-function addExerciseToLibraryIfMissing(name, type, muscleGroup) {
+function addExerciseToLibraryIfMissing(name, type, muscleGroup, trackingMode) {
   var cleanName = (name || '').trim();
   if (!cleanName) return false;
   var cleanMuscle = (muscleGroup || '').trim();
@@ -2153,7 +2215,7 @@ function addExerciseToLibraryIfMissing(name, type, muscleGroup) {
     return exerciseLibraryKey(ex.name, ex.type, ex.muscleGroup) === exerciseLibraryKey(cleanName, type, cleanMuscle);
   });
   if (exists) return false;
-  exs.push({ id: genId(), name: cleanName, type: type, muscleGroup: cleanMuscle });
+  exs.push({ id: genId(), name: cleanName, type: type, muscleGroup: cleanMuscle, trackingMode: trackingMode || getDefaultTrackingMode(type) });
   saveExercises(exs);
   return true;
 }
@@ -2164,11 +2226,11 @@ function saveEditorExerciseToLibrary(idx) {
     alert('Enter an exercise name first.');
     return;
   }
-  var added = addExerciseToLibraryIfMissing(ex.name, ex.type, ex.muscleGroup);
+  var added = addExerciseToLibraryIfMissing(ex.name, ex.type, ex.muscleGroup, getExerciseTrackingMode(ex));
   alert(added ? 'Added to exercise library.' : 'Exercise already exists in library.');
 }
 function addExerciseToEditor() {
-  _editorExercises.push({ id: genId(), name: '', type: 'weight_training', muscleGroup: '', sets: [], restSeconds: 60, notes: '' });
+  _editorExercises.push({ id: genId(), name: '', type: 'weight_training', trackingMode: 'reps_weight', muscleGroup: '', sets: [], restSeconds: 60, notes: '' });
   renderRoutineEditor();
 }
 function saveRoutineEdits() {
@@ -2346,15 +2408,16 @@ function startSessionTimer() {
 }
 
 /* ---- Hevy-like active session renderer ---- */
-function _getSessionColDef(type) {
-  switch (type) {
-    case 'weight_training':     return { grid:'28px 1fr 1fr 42px', headers:['SET','KG','REPS',''], keys:['weight','reps'] };
-    case 'bodyweight':          return { grid:'28px 1fr 42px',     headers:['SET','REPS',''],     keys:['reps'] };
-    case 'assisted_bodyweight': return { grid:'28px 1fr 1fr 42px', headers:['SET','ASSIST KG','REPS',''], keys:['assistWeight','reps'] };
-    case 'timed':
-    case 'mobility':            return { grid:'28px 1fr 42px',     headers:['SET','SECS',''],     keys:['duration'] };
-    default:                    return { grid:'28px 1fr 42px',     headers:['SET','REPS',''],     keys:['reps'] };
-  }
+function _getSessionColDef(ex) {
+  var cols = getSetColumns(ex);
+  var widths = ['28px'].concat(cols.map(function() { return '1fr'; })).concat(['42px']).join(' ');
+  var headers = ['SET'].concat(cols.map(function(col) {
+    if (col.key === 'weight') return 'KG';
+    if (col.key === 'assistWeight') return 'ASSIST KG';
+    if (col.key === 'duration') return 'SECS';
+    return col.label.toUpperCase();
+  })).concat(['']);
+  return { grid: widths, headers: headers, keys: cols.map(function(col) { return col.key; }) };
 }
 
 function renderActiveSession() {
@@ -2395,7 +2458,7 @@ function renderActiveSession() {
           '</button>' +
         '</div>';
     } else {
-      var col = _getSessionColDef(ex.type);
+      var col = _getSessionColDef(ex);
       doneCount = (ex.sets || []).filter(function(s){return s.completed;}).length;
       totalCount = (ex.sets || []).length;
 
@@ -2449,11 +2512,10 @@ function sessionSetVal(ei, si, key, val) {
 function sessionAddSetLive(ei) {
   var ex = sessionState.activeExercises[ei];
   if (!ex) return;
-  var cols = getSetColumns(ex.type);
-  var newSet = { completed: false };
+  var cols = getSetColumns(ex);
   // Copy last set values as defaults
   var lastSet = (ex.sets || []).slice(-1)[0];
-  cols.forEach(function(c) { newSet[c.key] = lastSet ? (lastSet[c.key] || null) : null; });
+  var newSet = buildSetFromColumns(cols, lastSet, true);
   ex.sets = ex.sets || [];
   ex.sets.push(newSet);
   renderActiveSession();
@@ -2607,11 +2669,12 @@ function renderSessionPickerList() {
 }
 
 function _makeSessionExercise(name, type, muscleGroup) {
-  var cols = getSetColumns(type);
-  var defaultSet = { completed: false };
-  cols.forEach(function(c){ defaultSet[c.key] = null; });
+  var trackingMode = arguments[3] || getDefaultTrackingMode(type);
+  var cols = getSetColumns(type, trackingMode);
+  var defaultSet = buildSetFromColumns(cols, null, true);
   return {
     id: genId(), name: name, type: type, muscleGroup: muscleGroup || '',
+    trackingMode: trackingMode,
     sets:        type === 'cardio' ? undefined : [defaultSet],
     cardioProps: type === 'cardio' ? {} : undefined,
     completed: false, restSeconds: 60, notes: ''
@@ -2621,7 +2684,7 @@ function _makeSessionExercise(name, type, muscleGroup) {
 function addSessionExerciseFromLibrary(libId) {
   var ex = getExercises().find(function(e){ return e.id === libId; });
   if (!ex) return;
-  sessionState.activeExercises.push(_makeSessionExercise(ex.name, ex.type, ex.muscleGroup));
+  sessionState.activeExercises.push(_makeSessionExercise(ex.name, ex.type, ex.muscleGroup, ex.trackingMode));
   renderActiveSession();
   closeSessionExercisePicker();
 }
@@ -2631,9 +2694,9 @@ function addSessionExerciseQuick() {
   if (!name) { alert('Please enter an exercise name.'); return; }
   var type = document.getElementById('sessQuickType').value;
   if (confirm('Add this exercise to the library too?')) {
-    addExerciseToLibraryIfMissing(name, type, '');
+    addExerciseToLibraryIfMissing(name, type, '', getDefaultTrackingMode(type));
   }
-  sessionState.activeExercises.push(_makeSessionExercise(name, type, ''));
+  sessionState.activeExercises.push(_makeSessionExercise(name, type, '', getDefaultTrackingMode(type)));
   renderActiveSession();
   closeSessionExercisePicker();
 }
@@ -2746,8 +2809,8 @@ function buildRoutinePreviewHTML(routine) {
       if (c.distance)   parts.push(c.distance + ' km');
       setsHTML = '<div class="small" style="margin-top:4px;color:var(--muted)">' + (parts.join(' · ') || 'Cardio') + '</div>';
     } else if ((ex.sets || []).length) {
-      var cols = getSetColumns(ex.type);
-      var th = '<tr>' + cols.map(function(c){return '<th>' + c.label + '</th>';}).join('') + '</tr>';
+      var cols = getSetColumns(ex);
+      var th = '<tr><th>#</th>' + cols.map(function(c){return '<th>' + c.label + '</th>';}).join('') + '</tr>';
       var trs = ex.sets.map(function(s, si){
         return '<tr><td style="color:var(--muted);padding-right:6px">' + (si+1) + '</td>' +
           cols.map(function(c){ return '<td>' + (s[c.key] != null ? s[c.key] : '—') + '</td>'; }).join('') +
@@ -2825,7 +2888,7 @@ function addToExerciseLibrary() {
     return;
   }
   var muscle = muscleSel.value === '__custom__' ? muscleCustom.value.trim() : muscleSel.value.trim();
-  addExerciseToLibraryIfMissing(name, type, muscle);
+  addExerciseToLibraryIfMissing(name, type, muscle, getDefaultTrackingMode(type));
   document.getElementById('libNewName').value   = '';
   populateExerciseLibraryGroupOptions();
   document.getElementById('libNewMuscle').value = muscle ? muscle : '';
@@ -2960,6 +3023,7 @@ function pickExerciseFromLibrary(libId) {
     sourceLibId: ex.id,
     name:        ex.name,
     type:        ex.type,
+    trackingMode:getExerciseTrackingMode(ex),
     muscleGroup: ex.muscleGroup || '',
     sets:        ex.type === 'cardio' ? undefined : [],
     cardioProps: ex.type === 'cardio' ? {} : undefined,
