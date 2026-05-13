@@ -1645,7 +1645,10 @@ function renderTrackerRoutineList() {
         '<span class="chip-label">' + escH(r.name) + '</span>' +
         statusLabel +
       '</div>' +
-      '<button class="btn-sm btn-danger" onclick="removeTrackerRoutine(\'' + r.id + '\')">✕</button>' +
+      '<div style="display:flex;gap:6px;align-items:center">' +
+        '<button class="btn-sm btn-success" onclick="startRoutineToday(\'' + r.id + '\')">Start</button>' +
+        '<button class="btn-sm btn-danger" onclick="removeTrackerRoutine(\'' + r.id + '\')">✕</button>' +
+      '</div>' +
     '</div>';
   }).join('');
 }
@@ -1745,6 +1748,7 @@ function renderFolders() {
                 '</button>' +
               '</div>' +
               '<div style="display:flex;gap:6px;flex-shrink:0">' +
+                '<button class="btn-sm btn-success" onclick="startRoutineToday(\'' + r.id + '\')">Start</button>' +
                 '<button class="btn-sm" onclick="openRoutineEditor(\'' + r.id + '\')">Edit</button>' +
                 '<button class="btn-sm btn-danger" onclick="deleteRoutine(\'' + r.id + '\')">Delete</button>' +
               '</div>' +
@@ -2430,6 +2434,23 @@ function renderSessionFullPreview() {
         '<span class="small" style="margin-left:8px;color:var(--muted)">' + typeLabel + ' · ' + detail + '</span>' +
       '</div>';
     }).join('') : '<div class="empty-state">No exercises in this routine.</div>');
+}
+
+function startRoutineToday(routineId) {
+  var routine = getRoutines().find(function(r) { return r.id === routineId; });
+  if (!routine) return;
+  if (sessionState.timerInterval) {
+    alert('Finish or discard the current workout first.');
+    var activeTab = document.getElementById('tab-workout-session');
+    if (activeTab) showSection('workout-session', activeTab);
+    return;
+  }
+  var workoutTab = document.getElementById('tab-workout-session');
+  if (workoutTab) showSection('workout-session', workoutTab);
+  sessionState.date = todayDateStr();
+  sessionState.routineId = routineId;
+  _setSessionRoutineValue(routineId);
+  startWorkout();
 }
 
 function startWorkout() {
