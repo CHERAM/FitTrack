@@ -1954,6 +1954,11 @@ function buildExerciseEditorHTML(ex, idx) {
   ].map(function(t) {
     return '<option value="' + t[0] + '"' + (ex.type === t[0] ? ' selected' : '') + '>' + t[1] + '</option>';
   }).join('');
+  var groups = getExerciseLibraryGroups();
+  var useCustomMuscleGroup = !!ex.muscleGroup && groups.indexOf(ex.muscleGroup) === -1;
+  var muscleGroupOptions = '<option value="">Muscle group</option>' + groups.map(function(g) {
+    return '<option value="' + escH(g) + '"' + (ex.muscleGroup === g ? ' selected' : '') + '>' + escH(g) + '</option>';
+  }).join('') + '<option value="__custom__"' + (useCustomMuscleGroup ? ' selected' : '') + '>Custom...</option>';
 
   var setsHTML = '';
   if (ex.type === 'cardio') {
@@ -1987,8 +1992,9 @@ function buildExerciseEditorHTML(ex, idx) {
       '<input class="ex-input" type="text" placeholder="Exercise name" value="' + escH(ex.name || '') +
         '" oninput="editorExChange(' + idx + ',\'name\',this.value)" style="flex:1;min-width:140px">' +
       '<select class="ex-input" onchange="editorExChangeType(' + idx + ',this.value)">' + typeOptions + '</select>' +
-      '<input class="ex-input" type="text" placeholder="Muscle group" value="' + escH(ex.muscleGroup || '') +
-        '" oninput="editorExChange(' + idx + ',\'muscleGroup\',this.value)" style="width:130px">' +
+      '<select class="ex-input" onchange="editorExChangeMuscleGroupMode(' + idx + ',this.value)" style="width:150px">' + muscleGroupOptions + '</select>' +
+      '<input class="ex-input" id="editorMuscleCustom-' + idx + '" type="text" placeholder="New muscle group" value="' + escH(useCustomMuscleGroup ? ex.muscleGroup : '') +
+        '" oninput="editorExChange(' + idx + ',\'muscleGroup\',this.value)" style="width:150px;' + (useCustomMuscleGroup ? '' : 'display:none;') + '">' +
       '<button class="btn-sm" onclick="editorMoveExercise(' + idx + ',-1)"' + (idx === 0 ? ' disabled' : '') + '>↑</button>' +
       '<button class="btn-sm" onclick="editorMoveExercise(' + idx + ',1)"' + (idx === _editorExercises.length - 1 ? ' disabled' : '') + '>↓</button>' +
       '<button class="btn-sm btn-success" onclick="saveEditorExerciseToLibrary(' + idx + ')">Save to Library</button>' +
@@ -2029,6 +2035,20 @@ function getSetColumns(type) {
 
 function editorExChange(idx, key, val) {
   if (_editorExercises[idx]) _editorExercises[idx][key] = val;
+}
+function editorExChangeMuscleGroupMode(idx, val) {
+  if (!_editorExercises[idx]) return;
+  var input = document.getElementById('editorMuscleCustom-' + idx);
+  if (val === '__custom__') {
+    if (input) input.style.display = '';
+    _editorExercises[idx].muscleGroup = input ? input.value.trim() : (_editorExercises[idx].muscleGroup || '');
+    return;
+  }
+  if (input) {
+    input.value = '';
+    input.style.display = 'none';
+  }
+  _editorExercises[idx].muscleGroup = val;
 }
 function editorExChangeType(idx, newType) {
   if (!_editorExercises[idx]) return;
