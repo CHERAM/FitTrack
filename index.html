@@ -80,6 +80,8 @@
 
   /* ---- Exercise editor ---- */
   .exercise-editor-item{background:var(--dark);border:1px solid var(--soft);border-radius:12px;padding:14px;margin-bottom:10px;}
+  .exercise-editor-item.dragging{opacity:.55}
+  .exercise-editor-item.drag-over{border-color:var(--green);box-shadow:0 0 0 1px rgba(34,197,94,.35) inset}
   .ex-header{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;}
   .ex-input{padding:7px 9px;background:var(--bg);border:1px solid var(--soft);border-radius:8px;color:white;font-size:13px;font-family:inherit;}
   .set-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px;}
@@ -377,8 +379,8 @@
   <div class="card"><h2>Daily Morning Routine</h2><div class="note">This is skill practice. Do not train to failure.</div></div>
   <div class="grid">
     <div class="card"><h3>Warmup</h3><div class="exercise"><label>Arm Circles — 20 reps</label><input type="checkbox"></div><div class="exercise"><label>Shoulder Rotations — 20 reps</label><input type="checkbox"></div><div class="exercise"><label>Wrist Rotations — 20 reps</label><input type="checkbox"></div><div class="exercise"><label>Jumping Jacks — 30 reps</label><input type="checkbox"></div><div class="exercise"><label>Cat Cow Stretch — 10 reps</label><input type="checkbox"></div></div>
-    <div class="card"><h3>Pushup Progression</h3><div class="exercise"><label>Plank Hold — 3 × 30 sec</label><input type="checkbox"></div><div class="exercise"><label>Scapula Pushups — 3 × 10</label><input type="checkbox"></div><div class="exercise"><label>Negative Pushups — 3 × 5</label><input type="checkbox"></div><div class="exercise"><label>Incline Pushups — 3 × 10</label><input type="checkbox"></div><div class="exercise"><label>Knee Pushups — 2 × max reps</label><input type="checkbox"></div></div>
-    <div class="card"><h3>Pullup Progression</h3><div class="exercise"><label>Dead Hang — 3 × 20 sec</label><input type="checkbox"></div><div class="exercise"><label>Scapula Pullups — 3 × 8</label><input type="checkbox"></div><div class="exercise"><label>Band Pulldowns — 3 × 15</label><input type="checkbox"></div><div class="exercise"><label>Australian Rows — 3 × 10</label><input type="checkbox"></div><div class="exercise"><label>Negative Pullups — 3 × 3</label><input type="checkbox"></div></div>
+    <div class="card"><h3>Chest</h3><div class="exercise"><label>Plank Hold — 3 × 30 sec</label><input type="checkbox"></div><div class="exercise"><label>Scapula Pushups — 3 × 10</label><input type="checkbox"></div><div class="exercise"><label>Negative Pushups — 3 × 5</label><input type="checkbox"></div><div class="exercise"><label>Incline Pushups — 3 × 10</label><input type="checkbox"></div><div class="exercise"><label>Knee Pushups — 2 × max reps</label><input type="checkbox"></div></div>
+    <div class="card"><h3>Lats / Upper Back</h3><div class="exercise"><label>Dead Hang — 3 × 20 sec</label><input type="checkbox"></div><div class="exercise"><label>Scapula Pullups — 3 × 8</label><input type="checkbox"></div><div class="exercise"><label>Band Pulldowns — 3 × 15</label><input type="checkbox"></div><div class="exercise"><label>Australian Rows — 3 × 10</label><input type="checkbox"></div><div class="exercise"><label>Negative Pullups — 3 × 3</label><input type="checkbox"></div></div>
     <div class="card"><h3>Core</h3><div class="exercise"><label>Plank — 3 × 30 sec</label><input type="checkbox"></div><div class="exercise"><label>Leg Raises — 3 × 10</label><input type="checkbox"></div></div>
   </div>
 </section>
@@ -877,7 +879,10 @@
         <option value="cardio">Cardio</option>
         <option value="mobility">Mobility</option>
       </select>
-      <input type="text" id="libNewMuscle" placeholder="Muscle group (optional)" style="width:170px;padding:9px 12px;border-radius:10px;border:1px solid var(--soft);background:var(--dark);color:white;">
+      <select id="libNewMuscle" onchange="toggleLibNewMuscleCustom()" style="width:170px;padding:9px 12px;border-radius:10px;border:1px solid var(--soft);background:var(--dark);color:white;">
+        <option value="">Muscle group</option>
+      </select>
+      <input type="text" id="libNewMuscleCustom" placeholder="New muscle group" style="display:none;width:170px;padding:9px 12px;border-radius:10px;border:1px solid var(--soft);background:var(--dark);color:white;" onkeydown="if(event.key==='Enter')addToExerciseLibrary()">
       <button class="btn-success" onclick="addToExerciseLibrary()">Add</button>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
@@ -908,6 +913,20 @@
     <h3>Pick Exercises from Library</h3>
     <p class="small" style="margin-top:-4px;margin-bottom:12px">Click an exercise to add it to the routine.</p>
     <input type="text" id="pickerSearch" placeholder="Search..." oninput="renderExercisePickerList()" style="width:100%;padding:9px 12px;border-radius:10px;border:1px solid var(--soft);background:var(--dark);color:white;margin-bottom:12px;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <select id="pickerFilterType" onchange="renderExercisePickerList()" style="padding:9px 12px;border-radius:10px;border:1px solid var(--soft);background:var(--dark);color:white;">
+        <option value="">All Types</option>
+        <option value="weight_training">Weight Training</option>
+        <option value="bodyweight">Bodyweight</option>
+        <option value="assisted_bodyweight">Assisted Bodyweight</option>
+        <option value="timed">Timed</option>
+        <option value="cardio">Cardio</option>
+        <option value="mobility">Mobility</option>
+      </select>
+      <select id="pickerFilterGroup" onchange="renderExercisePickerList()" style="padding:9px 12px;border-radius:10px;border:1px solid var(--soft);background:var(--dark);color:white;">
+        <option value="">All Groups</option>
+      </select>
+    </div>
     <div id="exercisePickerList"></div>
     <div class="modal-footer">
       <button onclick="closeExercisePicker()">Done</button>
@@ -1202,40 +1221,269 @@ function bindDatePickers() {
 }
 
 var EXERCISE_LIBRARY_DEFAULTS = [
-  { name: 'Arm Circles', type: 'mobility', muscleGroup: 'Warmup' },
-  { name: 'Shoulder Rotations', type: 'mobility', muscleGroup: 'Warmup' },
-  { name: 'Wrist Rotations', type: 'mobility', muscleGroup: 'Warmup' },
-  { name: 'Jumping Jacks', type: 'bodyweight', muscleGroup: 'Warmup' },
-  { name: 'Cat Cow Stretch', type: 'mobility', muscleGroup: 'Warmup' },
-  { name: 'Plank Hold', type: 'timed', muscleGroup: 'Pushup Progression' },
-  { name: 'Scapula Pushups', type: 'bodyweight', muscleGroup: 'Pushup Progression' },
-  { name: 'Negative Pushups', type: 'bodyweight', muscleGroup: 'Pushup Progression' },
-  { name: 'Incline Pushups', type: 'bodyweight', muscleGroup: 'Pushup Progression' },
-  { name: 'Knee Pushups', type: 'bodyweight', muscleGroup: 'Pushup Progression' },
-  { name: 'Dead Hang', type: 'timed', muscleGroup: 'Pullup Progression' },
-  { name: 'Scapula Pullups', type: 'bodyweight', muscleGroup: 'Pullup Progression' },
-  { name: 'Band Pulldowns', type: 'assisted_bodyweight', muscleGroup: 'Pullup Progression' },
-  { name: 'Australian Rows', type: 'bodyweight', muscleGroup: 'Pullup Progression' },
-  { name: 'Negative Pullups', type: 'bodyweight', muscleGroup: 'Pullup Progression' },
-  { name: 'Plank', type: 'timed', muscleGroup: 'Core' },
-  { name: 'Leg Raises', type: 'bodyweight', muscleGroup: 'Core' }
+  { name: "High Knees (Bodyweight)", type: "bodyweight", muscleGroup: "Warmup" },
+  { name: "Butt Kicks (Bodyweight)", type: "bodyweight", muscleGroup: "Warmup" },
+  { name: "Arm Swings (Bodyweight)", type: "mobility", muscleGroup: "Warmup" },
+  { name: "Arm Circles (Bodyweight)", type: "mobility", muscleGroup: "Warmup" },
+  { name: "Hip Circles (Bodyweight)", type: "mobility", muscleGroup: "Warmup" },
+  { name: "Ankle Rotations (Bodyweight)", type: "mobility", muscleGroup: "Warmup" },
+  { name: "Shoulder Rotations (Bodyweight)", type: "mobility", muscleGroup: "Warmup" },
+  { name: "Wrist Rotations (Bodyweight)", type: "mobility", muscleGroup: "Warmup" },
+  { name: "World's Greatest Stretch (Bodyweight)", type: "mobility", muscleGroup: "Warmup" },
+  { name: "Thoracic Rotations (Bodyweight)", type: "mobility", muscleGroup: "Warmup" },
+  { name: "Dynamic Hamstring Sweep (Bodyweight)", type: "mobility", muscleGroup: "Warmup" },
+  { name: "Walking Lunges (Bodyweight)", type: "bodyweight", muscleGroup: "Warmup" },
+  { name: "Mountain Climbers (Bodyweight)", type: "bodyweight", muscleGroup: "Warmup" },
+  { name: "Jumping Jacks (Bodyweight)", type: "bodyweight", muscleGroup: "Warmup" },
+  { name: "Cat Cow Stretch (Bodyweight)", type: "mobility", muscleGroup: "Warmup" },
+  { name: "Bench Press (Barbell)", type: "weight_training", muscleGroup: "Chest" },
+  { name: "Bench Press (Dumbbells)", type: "weight_training", muscleGroup: "Chest" },
+  { name: "Incline Bench Press (Barbell)", type: "weight_training", muscleGroup: "Chest" },
+  { name: "Incline Bench Press (Dumbbells)", type: "weight_training", muscleGroup: "Chest" },
+  { name: "Decline Bench Press (Barbell)", type: "weight_training", muscleGroup: "Chest" },
+  { name: "Chest Press (Machine)", type: "weight_training", muscleGroup: "Chest" },
+  { name: "Bench Press (Smith Machine)", type: "weight_training", muscleGroup: "Chest" },
+  { name: "Pec Deck Fly (Machine)", type: "weight_training", muscleGroup: "Chest" },
+  { name: "Chest Fly (Dumbbells)", type: "weight_training", muscleGroup: "Chest" },
+  { name: "Cable Fly (Cable)", type: "weight_training", muscleGroup: "Chest" },
+  { name: "Low-to-High Cable Fly (Cable)", type: "weight_training", muscleGroup: "Chest" },
+  { name: "Chest Dips (Dip Bars)", type: "bodyweight", muscleGroup: "Chest" },
+  { name: "Push-Up (Bodyweight)", type: "bodyweight", muscleGroup: "Chest" },
+  { name: "Incline Pushups (Bench)", type: "bodyweight", muscleGroup: "Chest" },
+  { name: "Knee Pushups (Bodyweight)", type: "bodyweight", muscleGroup: "Chest" },
+  { name: "Negative Pushups (Bodyweight)", type: "bodyweight", muscleGroup: "Chest" },
+  { name: "Scapula Pushups (Bodyweight)", type: "bodyweight", muscleGroup: "Chest" },
+  { name: "Weighted Push-Up (Plate)", type: "weight_training", muscleGroup: "Chest" },
+  { name: "Svend Press (Plate)", type: "weight_training", muscleGroup: "Chest" },
+  { name: "Pull-Up (Pull-Up Bar)", type: "bodyweight", muscleGroup: "Lats" },
+  { name: "Chin-Up (Pull-Up Bar)", type: "bodyweight", muscleGroup: "Lats" },
+  { name: "Assisted Pull-Up (Machine)", type: "assisted_bodyweight", muscleGroup: "Lats" },
+  { name: "Neutral Grip Pull-Up (Pull-Up Bar)", type: "bodyweight", muscleGroup: "Lats" },
+  { name: "Wide Grip Lat Pulldown (Machine/Cable)", type: "weight_training", muscleGroup: "Lats" },
+  { name: "Close Grip Lat Pulldown (Machine/Cable)", type: "weight_training", muscleGroup: "Lats" },
+  { name: "Reverse Grip Lat Pulldown (Machine/Cable)", type: "weight_training", muscleGroup: "Lats" },
+  { name: "Straight-Arm Pulldown (Cable)", type: "weight_training", muscleGroup: "Lats" },
+  { name: "One-Arm Kneeling Lat Pulldown (Cable)", type: "weight_training", muscleGroup: "Lats" },
+  { name: "Pullover (Dumbbell)", type: "weight_training", muscleGroup: "Lats" },
+  { name: "Scapula Pullups (Pull-Up Bar)", type: "bodyweight", muscleGroup: "Lats" },
+  { name: "Negative Pullups (Pull-Up Bar)", type: "bodyweight", muscleGroup: "Lats" },
+  { name: "Band Pulldowns (Resistance Band)", type: "assisted_bodyweight", muscleGroup: "Lats" },
+  { name: "Bent-Over Row (Barbell)", type: "weight_training", muscleGroup: "Upper Back" },
+  { name: "Pendlay Row (Barbell)", type: "weight_training", muscleGroup: "Upper Back" },
+  { name: "T-Bar Row (Machine/Barbell)", type: "weight_training", muscleGroup: "Upper Back" },
+  { name: "Seated Row (Cable)", type: "weight_training", muscleGroup: "Upper Back" },
+  { name: "Chest Supported Row (Machine)", type: "weight_training", muscleGroup: "Upper Back" },
+  { name: "One-Arm Row (Dumbbell)", type: "weight_training", muscleGroup: "Upper Back" },
+  { name: "Row (Machine)", type: "weight_training", muscleGroup: "Upper Back" },
+  { name: "Inverted Row (Bar/Rack)", type: "bodyweight", muscleGroup: "Upper Back" },
+  { name: "Australian Rows (Bar/Rack)", type: "bodyweight", muscleGroup: "Upper Back" },
+  { name: "Meadows Row (Barbell)", type: "weight_training", muscleGroup: "Upper Back" },
+  { name: "Seal Row (Barbell)", type: "weight_training", muscleGroup: "Upper Back" },
+  { name: "Shrug (Barbell)", type: "weight_training", muscleGroup: "Traps" },
+  { name: "Shrug (Dumbbells)", type: "weight_training", muscleGroup: "Traps" },
+  { name: "Shrug (Smith Machine)", type: "weight_training", muscleGroup: "Traps" },
+  { name: "Upright Row (Barbell)", type: "weight_training", muscleGroup: "Traps" },
+  { name: "Face Pull (Cable)", type: "weight_training", muscleGroup: "Traps" },
+  { name: "Rack Pull (Barbell)", type: "weight_training", muscleGroup: "Traps" },
+  { name: "Farmer's Carry (Dumbbells)", type: "weight_training", muscleGroup: "Traps" },
+  { name: "Overhead Press (Barbell)", type: "weight_training", muscleGroup: "Shoulders" },
+  { name: "Shoulder Press (Dumbbells)", type: "weight_training", muscleGroup: "Shoulders" },
+  { name: "Seated Shoulder Press (Dumbbells)", type: "weight_training", muscleGroup: "Shoulders" },
+  { name: "Arnold Press (Dumbbells)", type: "weight_training", muscleGroup: "Shoulders" },
+  { name: "Shoulder Press (Machine)", type: "weight_training", muscleGroup: "Shoulders" },
+  { name: "Push Press (Barbell)", type: "weight_training", muscleGroup: "Shoulders" },
+  { name: "Lateral Raise (Dumbbells)", type: "weight_training", muscleGroup: "Shoulders" },
+  { name: "Lateral Raise (Cable)", type: "weight_training", muscleGroup: "Shoulders" },
+  { name: "Rear Delt Fly (Dumbbells)", type: "weight_training", muscleGroup: "Shoulders" },
+  { name: "Reverse Pec Deck (Machine)", type: "weight_training", muscleGroup: "Shoulders" },
+  { name: "Front Raise (Plate/Dumbbells)", type: "weight_training", muscleGroup: "Shoulders" },
+  { name: "Handstand Push-Up (Bodyweight)", type: "bodyweight", muscleGroup: "Shoulders" },
+  { name: "Curl (Barbell)", type: "weight_training", muscleGroup: "Biceps" },
+  { name: "Curl (EZ-Bar)", type: "weight_training", muscleGroup: "Biceps" },
+  { name: "Curl (Dumbbells)", type: "weight_training", muscleGroup: "Biceps" },
+  { name: "Alternating Curl (Dumbbells)", type: "weight_training", muscleGroup: "Biceps" },
+  { name: "Hammer Curl (Dumbbells)", type: "weight_training", muscleGroup: "Biceps" },
+  { name: "Incline Curl (Dumbbells)", type: "weight_training", muscleGroup: "Biceps" },
+  { name: "Preacher Curl (Machine/EZ-Bar)", type: "weight_training", muscleGroup: "Biceps" },
+  { name: "Curl (Cable)", type: "weight_training", muscleGroup: "Biceps" },
+  { name: "Concentration Curl (Dumbbell)", type: "weight_training", muscleGroup: "Biceps" },
+  { name: "Bayesian Curl (Cable)", type: "weight_training", muscleGroup: "Biceps" },
+  { name: "Close-Grip Bench Press (Barbell)", type: "weight_training", muscleGroup: "Triceps" },
+  { name: "Pushdown (Cable)", type: "weight_training", muscleGroup: "Triceps" },
+  { name: "Rope Pushdown (Cable)", type: "weight_training", muscleGroup: "Triceps" },
+  { name: "Overhead Triceps Extension (Cable)", type: "weight_training", muscleGroup: "Triceps" },
+  { name: "Skull Crusher (EZ-Bar)", type: "weight_training", muscleGroup: "Triceps" },
+  { name: "Overhead Triceps Extension (Dumbbell)", type: "weight_training", muscleGroup: "Triceps" },
+  { name: "Bench Dip (Bench)", type: "bodyweight", muscleGroup: "Triceps" },
+  { name: "Parallel Bar Dip (Dip Bars)", type: "bodyweight", muscleGroup: "Triceps" },
+  { name: "Single-Arm Pushdown (Cable)", type: "weight_training", muscleGroup: "Triceps" },
+  { name: "Wrist Curl (Barbell/Dumbbells)", type: "weight_training", muscleGroup: "Forearms" },
+  { name: "Reverse Wrist Curl (Barbell/Dumbbells)", type: "weight_training", muscleGroup: "Forearms" },
+  { name: "Reverse Curl (EZ-Bar/Barbell)", type: "weight_training", muscleGroup: "Forearms" },
+  { name: "Hammer Curl (Dumbbells)", type: "weight_training", muscleGroup: "Forearms" },
+  { name: "Plate Pinch Hold (Plates)", type: "timed", muscleGroup: "Forearms" },
+  { name: "Bar Hang (Pull-Up Bar)", type: "timed", muscleGroup: "Forearms" },
+  { name: "Dead Hang (Pull-Up Bar)", type: "timed", muscleGroup: "Forearms" },
+  { name: "Wrist Roller (Wrist Roller)", type: "weight_training", muscleGroup: "Forearms" },
+  { name: "Sit-Up (Bodyweight)", type: "bodyweight", muscleGroup: "Core" },
+  { name: "Crunch (Bodyweight)", type: "bodyweight", muscleGroup: "Core" },
+  { name: "Cable Crunch (Cable)", type: "weight_training", muscleGroup: "Core" },
+  { name: "Hanging Knee Raise (Pull-Up Bar)", type: "bodyweight", muscleGroup: "Core" },
+  { name: "Hanging Leg Raise (Pull-Up Bar)", type: "bodyweight", muscleGroup: "Core" },
+  { name: "Ab Wheel Rollout (Ab Wheel)", type: "bodyweight", muscleGroup: "Core" },
+  { name: "Decline Sit-Up (Bench)", type: "bodyweight", muscleGroup: "Core" },
+  { name: "Toe Touch Crunch (Bodyweight)", type: "bodyweight", muscleGroup: "Core" },
+  { name: "V-Up (Bodyweight)", type: "bodyweight", muscleGroup: "Core" },
+  { name: "Dead Bug (Bodyweight)", type: "bodyweight", muscleGroup: "Core" },
+  { name: "Hollow Body Hold (Bodyweight)", type: "timed", muscleGroup: "Core" },
+  { name: "Hanging L-Sit (Dip Bars/Pull-Up Bar)", type: "timed", muscleGroup: "Core" },
+  { name: "Plank Hold (Bodyweight)", type: "timed", muscleGroup: "Core" },
+  { name: "Plank (Bodyweight)", type: "timed", muscleGroup: "Core" },
+  { name: "Leg Raises (Bodyweight)", type: "bodyweight", muscleGroup: "Core" },
+  { name: "Russian Twist (Bodyweight)", type: "bodyweight", muscleGroup: "Obliques" },
+  { name: "Woodchopper (Cable)", type: "weight_training", muscleGroup: "Obliques" },
+  { name: "Side Plank (Bodyweight)", type: "timed", muscleGroup: "Obliques" },
+  { name: "Hanging Oblique Knee Raise (Pull-Up Bar)", type: "bodyweight", muscleGroup: "Obliques" },
+  { name: "Landmine Rotation (Barbell)", type: "weight_training", muscleGroup: "Obliques" },
+  { name: "Side Bend (Dumbbell)", type: "weight_training", muscleGroup: "Obliques" },
+  { name: "Deadlift (Barbell)", type: "weight_training", muscleGroup: "Lower Back" },
+  { name: "Romanian Deadlift (Barbell)", type: "weight_training", muscleGroup: "Lower Back" },
+  { name: "Good Morning (Barbell)", type: "weight_training", muscleGroup: "Lower Back" },
+  { name: "Back Extension (Roman Chair)", type: "bodyweight", muscleGroup: "Lower Back" },
+  { name: "Reverse Hyperextension (Machine)", type: "weight_training", muscleGroup: "Lower Back" },
+  { name: "Superman Hold (Bodyweight)", type: "timed", muscleGroup: "Lower Back" },
+  { name: "Back Squat (Barbell)", type: "weight_training", muscleGroup: "Quads" },
+  { name: "Front Squat (Barbell)", type: "weight_training", muscleGroup: "Quads" },
+  { name: "Leg Press (Machine Plates)", type: "weight_training", muscleGroup: "Quads" },
+  { name: "Hack Squat (Machine)", type: "weight_training", muscleGroup: "Quads" },
+  { name: "Goblet Squat (Dumbbell)", type: "weight_training", muscleGroup: "Quads" },
+  { name: "Bulgarian Split Squat (Dumbbells)", type: "weight_training", muscleGroup: "Quads" },
+  { name: "Walking Lunge (Dumbbells)", type: "weight_training", muscleGroup: "Quads" },
+  { name: "Leg Extension (Machine)", type: "weight_training", muscleGroup: "Quads" },
+  { name: "Squat (Smith Machine)", type: "weight_training", muscleGroup: "Quads" },
+  { name: "Step-Up (Dumbbells)", type: "weight_training", muscleGroup: "Quads" },
+  { name: "Wall Sit (Bodyweight)", type: "timed", muscleGroup: "Quads" },
+  { name: "Romanian Deadlift (Barbell)", type: "weight_training", muscleGroup: "Hamstrings" },
+  { name: "Stiff-Leg Deadlift (Barbell)", type: "weight_training", muscleGroup: "Hamstrings" },
+  { name: "Lying Leg Curl (Machine)", type: "weight_training", muscleGroup: "Hamstrings" },
+  { name: "Seated Leg Curl (Machine)", type: "weight_training", muscleGroup: "Hamstrings" },
+  { name: "Nordic Curl (Bodyweight)", type: "bodyweight", muscleGroup: "Hamstrings" },
+  { name: "Glute Ham Raise (Machine/Bodyweight)", type: "bodyweight", muscleGroup: "Hamstrings" },
+  { name: "Single-Leg Romanian Deadlift (Dumbbell)", type: "weight_training", muscleGroup: "Hamstrings" },
+  { name: "Pull-Through (Cable)", type: "weight_training", muscleGroup: "Hamstrings" },
+  { name: "Hip Thrust (Barbell)", type: "weight_training", muscleGroup: "Glutes" },
+  { name: "Glute Bridge (Bodyweight)", type: "bodyweight", muscleGroup: "Glutes" },
+  { name: "Glute Bridge (Barbell)", type: "weight_training", muscleGroup: "Glutes" },
+  { name: "Kickback (Cable)", type: "weight_training", muscleGroup: "Glutes" },
+  { name: "Bulgarian Split Squat (Dumbbells)", type: "weight_training", muscleGroup: "Glutes" },
+  { name: "Walking Lunge (Dumbbells)", type: "weight_training", muscleGroup: "Glutes" },
+  { name: "Step-Up (Dumbbells)", type: "weight_training", muscleGroup: "Glutes" },
+  { name: "Sumo Deadlift (Barbell)", type: "weight_training", muscleGroup: "Glutes" },
+  { name: "Kettlebell Swing (Kettlebell)", type: "weight_training", muscleGroup: "Glutes" },
+  { name: "Pull-Through (Cable)", type: "weight_training", muscleGroup: "Glutes" },
+  { name: "Frog Pump (Bodyweight)", type: "bodyweight", muscleGroup: "Glutes" },
+  { name: "Adductor Machine (Machine)", type: "weight_training", muscleGroup: "Adductors" },
+  { name: "Copenhagen Plank (Bench)", type: "timed", muscleGroup: "Adductors" },
+  { name: "Sumo Squat (Dumbbell/Barbell)", type: "weight_training", muscleGroup: "Adductors" },
+  { name: "Lateral Lunge (Dumbbells)", type: "weight_training", muscleGroup: "Adductors" },
+  { name: "Cossack Squat (Bodyweight)", type: "bodyweight", muscleGroup: "Adductors" },
+  { name: "Hip Abduction Machine (Machine)", type: "weight_training", muscleGroup: "Abductors" },
+  { name: "Hip Abduction (Cable)", type: "weight_training", muscleGroup: "Abductors" },
+  { name: "Banded Lateral Walk (Resistance Band)", type: "assisted_bodyweight", muscleGroup: "Abductors" },
+  { name: "Clamshell (Bodyweight)", type: "bodyweight", muscleGroup: "Abductors" },
+  { name: "Side-Lying Leg Raise (Bodyweight)", type: "bodyweight", muscleGroup: "Abductors" },
+  { name: "Standing Calf Raise (Machine)", type: "weight_training", muscleGroup: "Calves" },
+  { name: "Seated Calf Raise (Machine Plates)", type: "weight_training", muscleGroup: "Calves" },
+  { name: "Calf Raise (Leg Press Machine)", type: "weight_training", muscleGroup: "Calves" },
+  { name: "Donkey Calf Raise (Machine)", type: "weight_training", muscleGroup: "Calves" },
+  { name: "Single-Leg Calf Raise (Bodyweight)", type: "bodyweight", muscleGroup: "Calves" },
+  { name: "Tibialis Raise (Bodyweight)", type: "bodyweight", muscleGroup: "Calves" },
+  { name: "Deadlift (Barbell)", type: "weight_training", muscleGroup: "Full Body" },
+  { name: "Clean (Barbell)", type: "weight_training", muscleGroup: "Full Body" },
+  { name: "Power Clean (Barbell)", type: "weight_training", muscleGroup: "Full Body" },
+  { name: "Clean and Press (Barbell)", type: "weight_training", muscleGroup: "Full Body" },
+  { name: "Snatch (Barbell)", type: "weight_training", muscleGroup: "Full Body" },
+  { name: "Thruster (Barbell/Dumbbells)", type: "weight_training", muscleGroup: "Full Body" },
+  { name: "Burpee (Bodyweight)", type: "bodyweight", muscleGroup: "Full Body" },
+  { name: "Man Maker (Dumbbells)", type: "weight_training", muscleGroup: "Full Body" },
+  { name: "Treadmill Walk (Treadmill)", type: "cardio", muscleGroup: "Cardio" },
+  { name: "Treadmill Run (Treadmill)", type: "cardio", muscleGroup: "Cardio" },
+  { name: "Incline Treadmill Walk (Treadmill)", type: "cardio", muscleGroup: "Cardio" },
+  { name: "Stationary Bike (Bike)", type: "cardio", muscleGroup: "Cardio" },
+  { name: "Spin Bike Sprint (Bike)", type: "cardio", muscleGroup: "Cardio" },
+  { name: "Rowing Machine (Rower)", type: "cardio", muscleGroup: "Cardio" },
+  { name: "Stair Climber (Machine)", type: "cardio", muscleGroup: "Cardio" },
+  { name: "Elliptical (Machine)", type: "cardio", muscleGroup: "Cardio" },
+  { name: "Ski Erg (Machine)", type: "cardio", muscleGroup: "Cardio" },
+  { name: "Battle Ropes (Ropes)", type: "cardio", muscleGroup: "Cardio" },
+  { name: "Sled Push (Sled)", type: "cardio", muscleGroup: "Cardio" }
 ];
 
-function ensureDefaultExerciseLibrary() {
+var LEGACY_EXERCISE_LIBRARY_MIGRATIONS = {
+  'arm circles': { name: 'Arm Circles (Bodyweight)', type: 'mobility', muscleGroup: 'Warmup' },
+  'shoulder rotations': { name: 'Shoulder Rotations (Bodyweight)', type: 'mobility', muscleGroup: 'Warmup' },
+  'wrist rotations': { name: 'Wrist Rotations (Bodyweight)', type: 'mobility', muscleGroup: 'Warmup' },
+  'jumping jacks': { name: 'Jumping Jacks (Bodyweight)', type: 'bodyweight', muscleGroup: 'Warmup' },
+  'cat cow stretch': { name: 'Cat Cow Stretch (Bodyweight)', type: 'mobility', muscleGroup: 'Warmup' },
+  'plank hold': { name: 'Plank Hold (Bodyweight)', type: 'timed', muscleGroup: 'Core' },
+  'scapula pushups': { name: 'Scapula Pushups (Bodyweight)', type: 'bodyweight', muscleGroup: 'Chest' },
+  'negative pushups': { name: 'Negative Pushups (Bodyweight)', type: 'bodyweight', muscleGroup: 'Chest' },
+  'incline pushups': { name: 'Incline Pushups (Bench)', type: 'bodyweight', muscleGroup: 'Chest' },
+  'knee pushups': { name: 'Knee Pushups (Bodyweight)', type: 'bodyweight', muscleGroup: 'Chest' },
+  'dead hang': { name: 'Dead Hang (Pull-Up Bar)', type: 'timed', muscleGroup: 'Forearms' },
+  'scapula pullups': { name: 'Scapula Pullups (Pull-Up Bar)', type: 'bodyweight', muscleGroup: 'Lats' },
+  'band pulldowns': { name: 'Band Pulldowns (Resistance Band)', type: 'assisted_bodyweight', muscleGroup: 'Lats' },
+  'australian rows': { name: 'Australian Rows (Bar/Rack)', type: 'bodyweight', muscleGroup: 'Upper Back' },
+  'negative pullups': { name: 'Negative Pullups (Pull-Up Bar)', type: 'bodyweight', muscleGroup: 'Lats' },
+  'plank': { name: 'Plank (Bodyweight)', type: 'timed', muscleGroup: 'Core' },
+  'leg raises': { name: 'Leg Raises (Bodyweight)', type: 'bodyweight', muscleGroup: 'Core' }
+};
+
+function migrateLegacyExerciseLibrary() {
   var exs = getExercises();
-  var names = {};
-  exs.forEach(function(e) { names[(e.name || '').trim().toLowerCase()] = true; });
+  if (!exs.length) return;
+  var changed = false;
+  var mapped = exs.map(function(ex) {
+    var key = (ex.name || '').trim().toLowerCase();
+    var migrated = LEGACY_EXERCISE_LIBRARY_MIGRATIONS[key];
+    if (!migrated) return ex;
+    changed = true;
+    return Object.assign({}, ex, {
+      name: migrated.name,
+      type: migrated.type,
+      muscleGroup: migrated.muscleGroup
+    });
+  });
+  var deduped = [];
+  var seen = {};
+  mapped.forEach(function(ex) {
+    var key = exerciseLibraryKey(ex.name, ex.type, ex.muscleGroup);
+    if (seen[key]) {
+      changed = true;
+      return;
+    }
+    seen[key] = true;
+    deduped.push(ex);
+  });
+  if (changed) saveExercises(deduped);
+}
+
+function ensureDefaultExerciseLibrary() {
+  migrateLegacyExerciseLibrary();
+  var exs = getExercises();
+  var seen = {};
+  exs.forEach(function(e) { seen[exerciseLibraryKey(e.name, e.type, e.muscleGroup)] = true; });
   var changed = false;
   EXERCISE_LIBRARY_DEFAULTS.forEach(function(ex) {
-    var key = ex.name.toLowerCase();
-    if (names[key]) return;
+    var key = exerciseLibraryKey(ex.name, ex.type, ex.muscleGroup);
+    if (seen[key]) return;
     exs.push({
       id: genId(),
       name: ex.name,
       type: ex.type,
       muscleGroup: ex.muscleGroup
     });
-    names[key] = true;
+    seen[key] = true;
     changed = true;
   });
   if (changed) saveExercises(exs);
@@ -1591,6 +1839,7 @@ function deleteRoutine(routineId) {
 
 var _editorRoutineId = null;
 var _editorExercises = [];
+var _editorDragIdx = null;
 
 function openRoutineEditor(routineId) {
   _editorRoutineId = routineId;
@@ -1654,13 +1903,16 @@ function buildExerciseEditorHTML(ex, idx) {
       '<button class="btn-sm" onclick="editorAddSet(' + idx + ')" style="margin-top:7px">+ Add Set</button>';
   }
 
-  return '<div class="exercise-editor-item" id="exeditor-' + idx + '">' +
+  return '<div class="exercise-editor-item" id="exeditor-' + idx + '" ondragover="editorDragOver(' + idx + ',event)" ondrop="editorDropExercise(' + idx + ',event)" ondragenter="editorDragEnter(' + idx + ',event)" ondragleave="editorDragLeave(' + idx + ',event)">' +
     '<div class="ex-header">' +
+      '<button class="btn-sm" draggable="true" ondragstart="editorStartDrag(' + idx + ',event)" ondragend="editorEndDrag()" title="Drag to reorder">↕</button>' +
       '<input class="ex-input" type="text" placeholder="Exercise name" value="' + escH(ex.name || '') +
         '" oninput="editorExChange(' + idx + ',\'name\',this.value)" style="flex:1;min-width:140px">' +
       '<select class="ex-input" onchange="editorExChangeType(' + idx + ',this.value)">' + typeOptions + '</select>' +
       '<input class="ex-input" type="text" placeholder="Muscle group" value="' + escH(ex.muscleGroup || '') +
         '" oninput="editorExChange(' + idx + ',\'muscleGroup\',this.value)" style="width:130px">' +
+      '<button class="btn-sm" onclick="editorMoveExercise(' + idx + ',-1)"' + (idx === 0 ? ' disabled' : '') + '>↑</button>' +
+      '<button class="btn-sm" onclick="editorMoveExercise(' + idx + ',1)"' + (idx === _editorExercises.length - 1 ? ' disabled' : '') + '>↓</button>' +
       '<button class="btn-sm btn-success" onclick="saveEditorExerciseToLibrary(' + idx + ')">Save to Library</button>' +
       '<button class="btn-sm btn-danger" onclick="editorRemoveExercise(' + idx + ')">Remove</button>' +
     '</div>' +
@@ -1739,15 +1991,71 @@ function editorRemoveExercise(idx) {
   _editorExercises.splice(idx, 1);
   renderRoutineEditor();
 }
+function editorMoveExercise(idx, delta) {
+  var next = idx + delta;
+  if (idx < 0 || next < 0 || idx >= _editorExercises.length || next >= _editorExercises.length) return;
+  var tmp = _editorExercises[idx];
+  _editorExercises[idx] = _editorExercises[next];
+  _editorExercises[next] = tmp;
+  renderRoutineEditor();
+}
+function editorStartDrag(idx, event) {
+  _editorDragIdx = idx;
+  if (event && event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', String(idx));
+  }
+  var el = document.getElementById('exeditor-' + idx);
+  if (el) el.classList.add('dragging');
+}
+function editorEndDrag() {
+  _editorDragIdx = null;
+  document.querySelectorAll('.exercise-editor-item').forEach(function(el) {
+    el.classList.remove('dragging');
+    el.classList.remove('drag-over');
+  });
+}
+function editorDragOver(idx, event) {
+  if (_editorDragIdx === null || _editorDragIdx === idx) return;
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+}
+function editorDragEnter(idx, event) {
+  if (_editorDragIdx === null || _editorDragIdx === idx) return;
+  event.preventDefault();
+  var el = document.getElementById('exeditor-' + idx);
+  if (el) el.classList.add('drag-over');
+}
+function editorDragLeave(idx, event) {
+  var el = document.getElementById('exeditor-' + idx);
+  if (!el) return;
+  if (event && event.relatedTarget && el.contains(event.relatedTarget)) return;
+  el.classList.remove('drag-over');
+}
+function editorDropExercise(idx, event) {
+  if (_editorDragIdx === null) return;
+  event.preventDefault();
+  var from = _editorDragIdx;
+  var to = idx;
+  editorEndDrag();
+  if (from === to || from < 0 || to < 0 || from >= _editorExercises.length || to >= _editorExercises.length) return;
+  var moved = _editorExercises.splice(from, 1)[0];
+  _editorExercises.splice(to, 0, moved);
+  renderRoutineEditor();
+}
+function exerciseLibraryKey(name, type, muscleGroup) {
+  return [(name || '').trim().toLowerCase(), type || '', (muscleGroup || '').trim().toLowerCase()].join('||');
+}
 function addExerciseToLibraryIfMissing(name, type, muscleGroup) {
   var cleanName = (name || '').trim();
   if (!cleanName) return false;
+  var cleanMuscle = (muscleGroup || '').trim();
   var exs = getExercises();
   var exists = exs.some(function(ex) {
-    return (ex.name || '').trim().toLowerCase() === cleanName.toLowerCase() && ex.type === type;
+    return exerciseLibraryKey(ex.name, ex.type, ex.muscleGroup) === exerciseLibraryKey(cleanName, type, cleanMuscle);
   });
   if (exists) return false;
-  exs.push({ id: genId(), name: cleanName, type: type, muscleGroup: (muscleGroup || '').trim() });
+  exs.push({ id: genId(), name: cleanName, type: type, muscleGroup: cleanMuscle });
   saveExercises(exs);
   return true;
 }
@@ -2368,7 +2676,10 @@ function buildRoutinePreviewHTML(routine) {
 
 function openExerciseLibrary() {
   document.getElementById('libNewName').value   = '';
+  populateExerciseLibraryGroupOptions();
   document.getElementById('libNewMuscle').value = '';
+  document.getElementById('libNewMuscleCustom').value = '';
+  toggleLibNewMuscleCustom();
   document.getElementById('libSearch').value    = '';
   document.getElementById('libFilterType').value = '';
   populateExerciseLibraryGroupFilter();
@@ -2381,14 +2692,48 @@ function closeExerciseLibrary() {
   document.getElementById('exerciseLibraryModal').classList.remove('open');
 }
 
+function getExerciseLibraryGroups() {
+  return Array.from(new Set(getExercises().map(function(e) {
+    return (e.muscleGroup || '').trim();
+  }).filter(Boolean))).sort(function(a, b) { return a.localeCompare(b); });
+}
+
+function populateExerciseLibraryGroupOptions() {
+  var sel = document.getElementById('libNewMuscle');
+  if (!sel) return;
+  var current = sel.value;
+  var groups = getExerciseLibraryGroups();
+  sel.innerHTML = '<option value="">Muscle group</option>' + groups.map(function(g) {
+    return '<option value="' + escH(g) + '">' + escH(g) + '</option>';
+  }).join('') + '<option value="__custom__">Custom...</option>';
+  if (groups.indexOf(current) !== -1 || current === '__custom__' || current === '') sel.value = current;
+}
+
+function toggleLibNewMuscleCustom() {
+  var sel = document.getElementById('libNewMuscle');
+  var custom = document.getElementById('libNewMuscleCustom');
+  if (!sel || !custom) return;
+  custom.style.display = sel.value === '__custom__' ? '' : 'none';
+}
+
 function addToExerciseLibrary() {
   var name = document.getElementById('libNewName').value.trim();
   if (!name) { alert('Please enter an exercise name.'); return; }
   var type   = document.getElementById('libNewType').value;
-  var muscle = document.getElementById('libNewMuscle').value.trim();
+  var muscleSel = document.getElementById('libNewMuscle');
+  var muscleCustom = document.getElementById('libNewMuscleCustom');
+  if (muscleSel.value === '__custom__' && !muscleCustom.value.trim()) {
+    alert('Please enter a muscle group.');
+    return;
+  }
+  var muscle = muscleSel.value === '__custom__' ? muscleCustom.value.trim() : muscleSel.value.trim();
   addExerciseToLibraryIfMissing(name, type, muscle);
   document.getElementById('libNewName').value   = '';
-  document.getElementById('libNewMuscle').value = '';
+  populateExerciseLibraryGroupOptions();
+  document.getElementById('libNewMuscle').value = muscle ? muscle : '';
+  if (document.getElementById('libNewMuscle').value !== muscle) document.getElementById('libNewMuscle').value = '';
+  document.getElementById('libNewMuscleCustom').value = '';
+  toggleLibNewMuscleCustom();
   populateExerciseLibraryGroupFilter();
   renderExerciseLibraryList();
 }
@@ -2396,6 +2741,7 @@ function addToExerciseLibrary() {
 function deleteFromLibrary(id) {
   if (!confirm('Remove this exercise from the library?')) return;
   saveExercises(getExercises().filter(function(e) { return e.id !== id; }));
+  populateExerciseLibraryGroupOptions();
   populateExerciseLibraryGroupFilter();
   renderExerciseLibraryList();
 }
@@ -2404,8 +2750,7 @@ function populateExerciseLibraryGroupFilter() {
   var sel = document.getElementById('libFilterGroup');
   if (!sel) return;
   var current = sel.value;
-  var groups = getExercises().map(function(e) { return (e.muscleGroup || '').trim(); }).filter(Boolean);
-  groups = Array.from(new Set(groups)).sort(function(a, b) { return a.localeCompare(b); });
+  var groups = getExerciseLibraryGroups();
   sel.innerHTML = '<option value="">All Groups</option>' + groups.map(function(g) {
     return '<option value="' + escH(g) + '">' + escH(g) + '</option>';
   }).join('');
@@ -2446,6 +2791,9 @@ function renderExerciseLibraryList() {
 
 function openExercisePicker() {
   document.getElementById('pickerSearch').value = '';
+  document.getElementById('pickerFilterType').value = '';
+  populateExercisePickerGroupFilter();
+  document.getElementById('pickerFilterGroup').value = '';
   renderExercisePickerList();
   document.getElementById('exercisePickerModal').classList.add('open');
   setTimeout(function() { document.getElementById('pickerSearch').focus(); }, 50);
@@ -2454,15 +2802,31 @@ function closeExercisePicker() {
   document.getElementById('exercisePickerModal').classList.remove('open');
 }
 
+function populateExercisePickerGroupFilter() {
+  var sel = document.getElementById('pickerFilterGroup');
+  if (!sel) return;
+  var current = sel.value;
+  var groups = getExerciseLibraryGroups();
+  sel.innerHTML = '<option value="">All Groups</option>' + groups.map(function(g) {
+    return '<option value="' + escH(g) + '">' + escH(g) + '</option>';
+  }).join('');
+  if (groups.indexOf(current) !== -1) sel.value = current;
+}
+
 function renderExercisePickerList() {
   var query = (document.getElementById('pickerSearch').value || '').toLowerCase();
+  var typeFilter = document.getElementById('pickerFilterType').value || '';
+  var groupFilter = document.getElementById('pickerFilterGroup').value || '';
   var exs   = getExercises().filter(function(e) {
-    return !query || e.name.toLowerCase().includes(query) || (e.muscleGroup || '').toLowerCase().includes(query);
+    var nameMatch = !query || e.name.toLowerCase().includes(query) || (e.muscleGroup || '').toLowerCase().includes(query);
+    var typeMatch = !typeFilter || e.type === typeFilter;
+    var groupMatch = !groupFilter || (e.muscleGroup || '') === groupFilter;
+    return nameMatch && typeMatch && groupMatch;
   });
   var container = document.getElementById('exercisePickerList');
   if (!exs.length) {
     container.innerHTML = '<div class="empty-state">' +
-      (query ? 'No matches.' : 'No exercises in library yet. Go to "Manage Exercises" to add some.') + '</div>';
+      ((query || typeFilter || groupFilter) ? 'No matches.' : 'No exercises in library yet. Go to "Manage Exercises" to add some.') + '</div>';
     return;
   }
   container.innerHTML = exs.map(function(e) {
