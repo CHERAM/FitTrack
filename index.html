@@ -3838,6 +3838,8 @@ function _appStart() {
     bindDatePickers();
     refreshOverviewStats();
     renderProgressPage();
+    trackerCurrentDate = todayDateStr();
+    initDailyTracker();
     loadState();
   });
 }
