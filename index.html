@@ -307,7 +307,6 @@
   <button class="tab active" id="tab-daily-tracker" onclick="showSection('daily-tracker',this)">Daily Tracker</button>
   <button class="tab" id="tab-routines" onclick="showSection('routines',this)">Routines</button>
   <button class="tab" id="tab-workout-session" onclick="showSection('workout-session',this)">Workout</button>
-  <button class="tab" id="tab-calendar" onclick="showSection('calendar',this)">Calendar</button>
   <button class="tab" onclick="showSection('progress',this)">Progress</button>
   <button class="tab" id="tab-diet" onclick="showSection('diet',this)">Diet</button>
   <button class="tab" id="tab-settings" onclick="showSection('settings',this)">Settings</button>
@@ -652,25 +651,6 @@
   </div>
 </section>
 
-<!-- CALENDAR -->
-<section id="calendar" class="section">
-  <div class="card">
-    <h2>Calendar</h2>
-    <div class="calendar-nav">
-      <button onclick="calendarPrevMonth()">◀ Prev</button>
-      <strong id="calendarTitle" style="font-size:18px;color:var(--text)"></strong>
-      <button onclick="calendarNextMonth()">Next ▶</button>
-    </div>
-    <div class="calendar-grid" id="calendarGrid"></div>
-    <div class="cal-legend">
-      <span><span style="color:var(--green);font-size:16px">●</span> Completed</span>
-      <span><span style="color:var(--yellow);font-size:16px">●</span> In Progress</span>
-      <span><span style="color:var(--red);font-size:16px">●</span> Missed</span>
-      <span><span style="color:var(--blue);font-size:16px">●</span> Rest Day</span>
-    </div>
-  </div>
-</section>
-
 <!-- SETTINGS -->
 <section id="settings" class="section">
   <div class="card">
@@ -926,7 +906,6 @@ function showSection(id, btn) {
   else if (id === 'daily-tracker') initDailyTracker();
   else if (id === 'routines') renderFolders();
   else if (id === 'workout-session') initWorkoutSession();
-  else if (id === 'calendar') initCalendar();
   else if (id === 'settings') initSettings();
 }
 
