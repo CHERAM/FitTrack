@@ -1738,8 +1738,26 @@ function editorRemoveExercise(idx) {
   _editorExercises.splice(idx, 1);
   renderRoutineEditor();
 }
+function addExerciseToLibraryIfMissing(name, type, muscleGroup) {
+  var cleanName = (name || '').trim();
+  if (!cleanName) return false;
+  var exs = getExercises();
+  var exists = exs.some(function(ex) {
+    return (ex.name || '').trim().toLowerCase() === cleanName.toLowerCase() && ex.type === type;
+  });
+  if (exists) return false;
+  exs.push({ id: genId(), name: cleanName, type: type, muscleGroup: (muscleGroup || '').trim() });
+  saveExercises(exs);
+  return true;
+}
 function addExerciseToEditor() {
-  _editorExercises.push({ id: genId(), name: '', type: 'weight_training', muscleGroup: '', sets: [], restSeconds: 60, notes: '' });
+  var name = (prompt('Exercise name?') || '').trim();
+  if (!name) return;
+  var type = 'weight_training';
+  if (confirm('Add this exercise to the library too?')) {
+    addExerciseToLibraryIfMissing(name, type, '');
+  }
+  _editorExercises.push({ id: genId(), name: name, type: type, muscleGroup: '', sets: [], restSeconds: 60, notes: '' });
   renderRoutineEditor();
 }
 function saveRoutineEdits() {
@@ -2201,6 +2219,9 @@ function addSessionExerciseQuick() {
   var name = document.getElementById('sessQuickName').value.trim();
   if (!name) { alert('Please enter an exercise name.'); return; }
   var type = document.getElementById('sessQuickType').value;
+  if (confirm('Add this exercise to the library too?')) {
+    addExerciseToLibraryIfMissing(name, type, '');
+  }
   sessionState.activeExercises.push(_makeSessionExercise(name, type, ''));
   renderActiveSession();
   closeSessionExercisePicker();
@@ -2360,9 +2381,7 @@ function addToExerciseLibrary() {
   if (!name) { alert('Please enter an exercise name.'); return; }
   var type   = document.getElementById('libNewType').value;
   var muscle = document.getElementById('libNewMuscle').value.trim();
-  var exs = getExercises();
-  exs.push({ id: genId(), name: name, type: type, muscleGroup: muscle });
-  saveExercises(exs);
+  addExerciseToLibraryIfMissing(name, type, muscle);
   document.getElementById('libNewName').value   = '';
   document.getElementById('libNewMuscle').value = '';
   populateExerciseLibraryGroupFilter();
