@@ -304,38 +304,16 @@
 
 <!-- Main navigation tabs -->
 <div class="tabs">
-  <button class="tab active" onclick="showSection('overview',this)">Overview</button>
-  <button class="tab" onclick="showSection('progress',this)">Progress</button>
-  <button class="tab" onclick="showSection('diet',this)">Diet</button>
-  <button class="tab" id="tab-daily-tracker" onclick="showSection('daily-tracker',this)">Daily Tracker</button>
+  <button class="tab active" id="tab-daily-tracker" onclick="showSection('daily-tracker',this)">Daily Tracker</button>
   <button class="tab" id="tab-routines" onclick="showSection('routines',this)">Routines</button>
   <button class="tab" id="tab-workout-session" onclick="showSection('workout-session',this)">Workout</button>
   <button class="tab" id="tab-calendar" onclick="showSection('calendar',this)">Calendar</button>
   <button class="tab" id="tab-settings" onclick="showSection('settings',this)">Settings</button>
+  <button class="tab" onclick="showSection('progress',this)">Progress</button>
+  <button class="tab" onclick="showSection('diet',this)">Diet</button>
 </div>
 
 <!-- ===== EXISTING SECTIONS ===== -->
-<section id="overview" class="section active">
-  <div class="card">
-    <h2>Progress &amp; Statistics</h2>
-    <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:18px">
-      <div class="form-group" style="margin:0">
-        <label>Start Date</label>
-        <input type="date" id="progressStartDate" onchange="progressRangeChanged()">
-      </div>
-      <div class="form-group" style="margin:0">
-        <label>End Date</label>
-        <input type="date" id="progressEndDate" onchange="progressRangeChanged()">
-      </div>
-      <button class="btn-sm" onclick="setProgressRangeDays(30)">Next 30 Days</button>
-      <button class="btn-sm" onclick="setProgressRangeDays(7)">Next 7 Days</button>
-      <button class="btn-sm" onclick="setProgressRangeDays(90)">Next 90 Days</button>
-    </div>
-    <div id="overviewDashboard" style="margin-bottom:20px"></div>
-    <div id="overviewConsistency" style="margin-bottom:20px"></div>
-  </div>
-</section>
-
 <section id="progress" class="section">
   <div class="card">
     <h2>Progress</h2>
@@ -520,7 +498,7 @@
 <!-- ===== NEW SECTIONS ===== -->
 
 <!-- DAILY TRACKER -->
-<section id="daily-tracker" class="section">
+<section id="daily-tracker" class="section active">
   <div class="card">
     <h2>Daily Tracker</h2>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px">
@@ -939,8 +917,7 @@ function showSection(id, btn) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
   // New tab inits
-  if (id === 'overview') renderProgressPage();
-  else if (id === 'progress') renderProgressPage();
+  if (id === 'progress') renderProgressPage();
   else if (id === 'daily-tracker') initDailyTracker();
   else if (id === 'routines') renderFolders();
   else if (id === 'workout-session') initWorkoutSession();
