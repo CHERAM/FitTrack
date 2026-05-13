@@ -2268,16 +2268,42 @@ function sessionStep2Next() {
   sessionGoStep(3);
 }
 
+function getTrackerPlannedRoutineIdsForDate(dateStr) {
+  if (!dateStr) return [];
+  var meta = getDailyMeta()[dateStr] || {};
+  return (meta.plannedRoutines || []).map(function(r) { return r.id; }).filter(Boolean);
+}
+
 function populateSessionRoutines() {
   var sel = document.getElementById('sessionRoutine');
   var folders = getFolders();
   var routines = getRoutines();
+  var plannedIds = getTrackerPlannedRoutineIdsForDate(sessionState.date);
+  var plannedSet = new Set(plannedIds);
+  var plannedRoutines = plannedIds.map(function(id) {
+    return routines.find(function(r) { return r.id === id; });
+  }).filter(Boolean);
   sel.innerHTML = '<option value="">-- Select Routine --</option>';
+
+  if (plannedRoutines.length) {
+    var plannedGroup = document.createElement('optgroup');
+    plannedGroup.label = 'Planned for this day';
+    plannedRoutines.forEach(function(r) {
+      var opt = document.createElement('option');
+      opt.value = r.id;
+      opt.textContent = r.name;
+      plannedGroup.appendChild(opt);
+    });
+    sel.appendChild(plannedGroup);
+  }
+
   folders.forEach(function(f) {
-    var fRoutines = routines.filter(function(r) { return r.folderId === f.id; });
+    var fRoutines = routines.filter(function(r) {
+      return r.folderId === f.id && !plannedSet.has(r.id);
+    });
     if (!fRoutines.length) return;
     var grp = document.createElement('optgroup');
-    grp.label = f.name;
+    grp.label = plannedRoutines.length ? 'All Routines — ' + f.name : f.name;
     fRoutines.forEach(function(r) {
       var opt = document.createElement('option');
       opt.value = r.id;
@@ -2291,11 +2317,17 @@ function populateSessionRoutines() {
 function renderSessionRoutinePreview() {
   var routineId = document.getElementById('sessionRoutine').value;
   var container = document.getElementById('sessionPreviewStep2');
-  if (!routineId) { container.innerHTML = ''; return; }
+  var plannedCount = getTrackerPlannedRoutineIdsForDate(sessionState.date).length;
+  if (!routineId) {
+    container.innerHTML = plannedCount
+      ? '<div class="small" style="color:var(--muted);margin-top:6px">' + plannedCount + ' routine(s) already planned in Daily Tracker for this date.</div>'
+      : '';
+    return;
+  }
   var routine = getRoutines().find(function(r) { return r.id === routineId; });
   if (!routine) return;
   container.innerHTML = '<div class="small" style="color:var(--muted);margin-top:6px">' +
-    routine.exercises.length + ' exercise(s)</div>';
+    (plannedCount ? plannedCount + ' planned for this day · ' : '') + routine.exercises.length + ' exercise(s)</div>';
 }
 
 function renderSessionFullPreview() {
