@@ -1661,6 +1661,7 @@ function buildExerciseEditorHTML(ex, idx) {
       '<select class="ex-input" onchange="editorExChangeType(' + idx + ',this.value)">' + typeOptions + '</select>' +
       '<input class="ex-input" type="text" placeholder="Muscle group" value="' + escH(ex.muscleGroup || '') +
         '" oninput="editorExChange(' + idx + ',\'muscleGroup\',this.value)" style="width:130px">' +
+      '<button class="btn-sm btn-success" onclick="saveEditorExerciseToLibrary(' + idx + ')">Save to Library</button>' +
       '<button class="btn-sm btn-danger" onclick="editorRemoveExercise(' + idx + ')">Remove</button>' +
     '</div>' +
     '<div>' + setsHTML + '</div>' +
@@ -1750,14 +1751,18 @@ function addExerciseToLibraryIfMissing(name, type, muscleGroup) {
   saveExercises(exs);
   return true;
 }
-function addExerciseToEditor() {
-  var name = (prompt('Exercise name?') || '').trim();
-  if (!name) return;
-  var type = 'weight_training';
-  if (confirm('Add this exercise to the library too?')) {
-    addExerciseToLibraryIfMissing(name, type, '');
+function saveEditorExerciseToLibrary(idx) {
+  var ex = _editorExercises[idx];
+  if (!ex) return;
+  if (!(ex.name || '').trim()) {
+    alert('Enter an exercise name first.');
+    return;
   }
-  _editorExercises.push({ id: genId(), name: name, type: type, muscleGroup: '', sets: [], restSeconds: 60, notes: '' });
+  var added = addExerciseToLibraryIfMissing(ex.name, ex.type, ex.muscleGroup);
+  alert(added ? 'Added to exercise library.' : 'Exercise already exists in library.');
+}
+function addExerciseToEditor() {
+  _editorExercises.push({ id: genId(), name: '', type: 'weight_training', muscleGroup: '', sets: [], restSeconds: 60, notes: '' });
   renderRoutineEditor();
 }
 function saveRoutineEdits() {
