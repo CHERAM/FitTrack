@@ -5649,7 +5649,7 @@ function renderPStatistics() {
       pStatRow('muscleDistribution', 'Muscle Distribution Radar', muscleRows.length + ' muscle groups') +
       pStatRow('mainExercises', 'Main Exercises', top) +
       pStatRow('monthlyReport', 'Monthly Report', data.entries.length + ' workouts in range') +
-      pStatRow('personalRecords', 'Personal Records', data.prsThisMonth.length + ' PRs this month') +
+      pStatRow('personalRecords', 'Personal Records', getPRsInRange(getProgressRange().start, getProgressRange().end).length + ' PRs in range') +
       pStatRow('workoutFrequency', 'Workout Frequency', 'Weekday vs Weekend') +
     '</div>';
 }
@@ -5866,8 +5866,31 @@ function renderStatMonthlyReport() {
     '</div>';
 }
 
+function getPRsInRange(start, end) {
+  var allEntries = pEntries(true); // all-time workout entries
+  var exerciseMap = collectExerciseStats(allEntries);
+  var prs = [];
+  Object.keys(exerciseMap).forEach(function(name) {
+    var item = exerciseMap[name];
+    var before  = item.history.filter(function(h) { return h.date < start; });
+    var inRange = item.history.filter(function(h) { return h.date >= start && h.date <= end; });
+    if (!inRange.length) return;
+    var prevWeight = before.reduce(function(m, h) { return Math.max(m, h.maxWeight || 0); }, 0);
+    var prevReps   = before.reduce(function(m, h) { return Math.max(m, h.maxReps   || 0); }, 0);
+    var prev1RM    = before.reduce(function(m, h) { return Math.max(m, h.estimated1RM || 0); }, 0);
+    inRange.forEach(function(h) {
+      if (h.maxWeight > prevWeight)               prs.push({ date: h.date, name: name, type: 'weight', label: 'Weight PR',   value: h.maxWeight + ' kg' });
+      if (h.maxReps > prevReps)                   prs.push({ date: h.date, name: name, type: 'reps',   label: 'Reps PR',     value: h.maxReps + ' reps' });
+      if (h.estimated1RM > prev1RM && h.estimated1RM > 0) prs.push({ date: h.date, name: name, type: '1rm', label: 'Est. 1RM PR', value: h.estimated1RM.toFixed(1) + ' kg' });
+    });
+  });
+  return prs.reverse();
+}
+
 function renderStatPersonalRecords() {
-  return renderPRList(getProgressAnalytics().prsThisMonth);
+  var range = getProgressRange();
+  var prs = getPRsInRange(range.start, range.end);
+  return renderPRList(prs);
 }
 
 function renderStatWorkoutFrequency() {
