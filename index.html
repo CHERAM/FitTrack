@@ -4644,7 +4644,7 @@ function getProgressAnalytics() {
       if (h.estimated1RM > prev1RM && h.estimated1RM > 0) prsThisMonth.push({ date: h.date, name: name, type: '1rm', label: 'Est. 1RM PR', value: h.estimated1RM.toFixed(1) + ' kg' });
     });
   });
-  prsThisMonth = prsThisMonth.slice(-8).reverse();
+  prsThisMonth = prsThisMonth.reverse();
   var routineFreq = {};
   var muscleFreq = {};
   var muscleSets = {};
@@ -4765,19 +4765,30 @@ function renderTopExercisesList(topExercises) {
 
 function renderPRList(prsThisMonth) {
   if (!prsThisMonth.length) return '<div class="p-empty">No PRs this month yet.</div>';
-  return '<div style="display:grid;gap:10px">' + prsThisMonth.map(function(pr) {
-    var badgeColor = pr.type === 'weight' ? '#f59e0b' : pr.type === '1rm' ? '#34d399' : 'var(--accent)';
-    var icon = pr.type === 'weight' ? '🏋️' : pr.type === '1rm' ? '⚡' : '🔁';
-    return '<div style="background:#141414;border:1px solid #2a2a2a;border-radius:14px;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:14px">' +
-      '<div style="min-width:0">' +
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
-          '<span style="font-size:16px">' + icon + '</span>' +
-          '<span style="background:' + badgeColor + '22;color:' + badgeColor + ';font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;letter-spacing:.04em;text-transform:uppercase">' + escH(pr.label) + '</span>' +
+  // Group by exercise name, preserving insertion order
+  var groups = {}, order = [];
+  prsThisMonth.forEach(function(pr) {
+    if (!groups[pr.name]) { groups[pr.name] = { date: pr.date, prs: [] }; order.push(pr.name); }
+    groups[pr.name].prs.push(pr);
+    if (pr.date > groups[pr.name].date) groups[pr.name].date = pr.date;
+  });
+  return '<div style="display:grid;gap:10px">' + order.map(function(name) {
+    var g = groups[name];
+    var chips = g.prs.map(function(pr) {
+      var c = pr.type === 'weight' ? '#f59e0b' : pr.type === '1rm' ? '#34d399' : 'var(--accent)';
+      var icon = pr.type === 'weight' ? '🏋️' : pr.type === '1rm' ? '⚡' : '🔁';
+      return '<div style="display:flex;flex-direction:column;gap:3px;background:' + c + '11;border:1px solid ' + c + '33;border-radius:10px;padding:8px 12px;min-width:90px">' +
+        '<div style="display:flex;align-items:center;gap:5px">' +
+          '<span style="font-size:13px">' + icon + '</span>' +
+          '<span style="font-size:10px;font-weight:700;color:' + c + ';text-transform:uppercase;letter-spacing:.04em">' + escH(pr.label) + '</span>' +
         '</div>' +
-        '<div style="font-size:15px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escH(pr.name) + '</div>' +
-        '<div style="font-size:12px;color:#6a6a72;margin-top:3px">' + escH(pr.date) + '</div>' +
-      '</div>' +
-      '<div style="font-size:22px;font-weight:800;color:' + badgeColor + ';white-space:nowrap">' + escH(pr.value) + '</div>' +
+        '<div style="font-size:18px;font-weight:800;color:' + c + '">' + escH(pr.value) + '</div>' +
+      '</div>';
+    }).join('');
+    return '<div style="background:#141414;border:1px solid #2a2a2a;border-radius:14px;padding:14px 16px">' +
+      '<div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:10px">' + escH(name) + '</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:8px">' + chips + '</div>' +
+      '<div style="font-size:11px;color:#6a6a72;margin-top:8px">' + escH(g.date) + '</div>' +
     '</div>';
   }).join('') + '</div>';
 }
