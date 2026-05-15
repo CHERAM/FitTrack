@@ -785,11 +785,11 @@
     <h2>Workout Session</h2>
     <div class="form-group">
       <label>Workout Date</label>
-      <input type="date" id="sessionDate" onchange="sessionDateChanged(this.value)" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--soft);background:var(--dark);color:white;font-size:14px;">
-    </div>
-    <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px">
-      <div id="todayRoutineStartArea"></div>
-      <button onclick="startEmptyWorkout()" style="background:var(--accent);color:#080808">⚡ Start Empty Workout</button>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;justify-content:flex-start">
+        <input type="date" id="sessionDate" onchange="sessionDateChanged(this.value)" style="width:150px;padding:10px 12px;border-radius:10px;border:1px solid var(--soft);background:var(--dark);color:white;font-size:14px;">
+        <div id="todayRoutineStartArea"></div>
+        <button onclick="startEmptyWorkout()" style="background:var(--accent);color:#080808;white-space:nowrap">⚡ Start Empty Workout</button>
+      </div>
     </div>
 
     <div class="workout-hub-routines">
@@ -3266,9 +3266,7 @@ function renderTodayRoutineStartArea(dateStr) {
     return;
   }
   container.innerHTML =
-    '<div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap">' +
-      '<button onclick="openTodayRoutineModal()" style="background:var(--accent);color:#080808">⚡ Start Today Routine</button>' +
-    '</div>';
+    '<button onclick="openTodayRoutineModal()" style="background:var(--accent);color:#080808;white-space:nowrap">⚡ Start Today Routine</button>';
 }
 
 var _sessionRoutineFolderOpen = {};
@@ -4038,12 +4036,13 @@ function renderCalendar() {
 function getCalendarDayClass(dateStr, logs, meta, today) {
   var m = meta[dateStr];
   var dayLogs = _dailyLogList(logs[dateStr]);
-  if (m && m.isRestDay) return ['cal-rest'];
+  // Workouts take priority over rest day flag
   if (dayLogs.length) {
     if (dayLogs.some(function(l) { return l.status === 'in_progress'; })) return ['cal-yellow'];
     if (dayLogs.some(function(l) { return l.status === 'completed'; })) return ['cal-green'];
   }
-  if (dateStr < today) return ['cal-red'];
+  if (m && m.isRestDay) return ['cal-rest'];
+  if (dateStr < today) return ['cal-rest']; // auto-rest: past days without workout
   return [];
 }
 
@@ -4372,15 +4371,18 @@ function getWorkoutDurationMin(log) {
 }
 
 function calcWorkoutStreak() {
-  var logs = getDailyLogs();
-  var streak = 0;
+  var meta = getDailyMeta();
   var day = new Date();
+  day.setDate(day.getDate() - 1); // start from yesterday — today isn't over yet
+  var streak = 0;
   while (true) {
     var dateStr = _dateToLocalStr(day);
     var hasCompleted = _getDailyLogEntry(dateStr).some(function(log) { return log.status === 'completed'; });
-    if (!hasCompleted) break;
+    var isManualRest = !!(meta[dateStr] && meta[dateStr].isRestDay);
+    if (!hasCompleted && !isManualRest) break;
     streak++;
     day.setDate(day.getDate() - 1);
+    if (streak > 365) break;
   }
   return streak;
 }
@@ -4622,29 +4624,40 @@ function getProgressAnalytics() {
   var adherence = totalPlanned ? Math.round(entries.length / totalPlanned * 100) : 0;
   var streak = 0;
   var longestStreak = 0;
-  var activeDays = 0, restDays = 0, missedDays = 0, futureDays = 0, trainingDays = 0;
+  var activeDays = 0, restDays = 0, missedDays = 0, futureDays = 0, trainingDays = 0, restSinceLastWorkout = 0;
+  var _todayStr = todayDateStr();
+  var _foundLastWorkout = false;
   for (var i = days.length - 1; i >= 0; i--) {
     var ds = days[i];
-    var isFuture = ds > todayDateStr();
+    var isFuture = ds > _todayStr;
+    var isToday  = ds === _todayStr;
     if (isFuture) { futureDays++; continue; }
     var dayLogs = _dailyLogList(logs[ds]);
     var dayMeta = meta[ds] || {};
     var isCompleted = dayLogs.some(function(log) { return log.status === 'completed'; });
-    var isRest = !!dayMeta.isRestDay;
-    if (isCompleted) trainingDays++;
-    if (isRest) restDays++;
-    if (isCompleted || isRest) {
+    var isManualRest = !!dayMeta.isRestDay;
+    if (isCompleted) {
+      trainingDays++;
       activeDays++;
       streak++;
-    } else {
-      missedDays++;
-      break;
+      _foundLastWorkout = true;
+    } else if (!isToday) {
+      // auto-rest: strictly past non-workout days (today is not yet determined)
+      restDays++;
+      activeDays++;
+      if (!_foundLastWorkout) restSinceLastWorkout++;
+      if (isManualRest) {
+        streak++; // manually marked rest keeps streak
+      } else {
+        break; // auto-rest with no explicit mark breaks streak
+      }
     }
+    // today with no workout yet: skip (don't auto-rest, don't break streak)
   }
   var streakRun = 0;
   for (var si = 0; si < days.length; si++) {
     var sds = days[si];
-    if (sds > todayDateStr()) continue;
+    if (sds > _todayStr) continue;
     var sLogs = _dailyLogList(logs[sds]);
     var sMeta = meta[sds] || {};
     if (sLogs.some(function(log) { return log.status === 'completed'; }) || sMeta.isRestDay) {
@@ -4752,6 +4765,7 @@ function getProgressAnalytics() {
     missedDays: missedDays,
     futureDays: futureDays,
     trainingDays: trainingDays,
+    restSinceLastWorkout: restSinceLastWorkout,
     topExercises: topExercises,
     prsThisMonth: prsThisMonth,
     routineFreq: routineFreq,
@@ -4946,7 +4960,7 @@ function renderDetailedProgressStats() {
         '<div class="small" style="display:flex;justify-content:space-between"><span>Avg Incline</span><strong style="color:var(--text)">' + (data.avgCardioIncline ? data.avgCardioIncline.toFixed(1) + '%' : '—') + '</strong></div>' +
       '</div>' +
       '<div class="card" style="background:var(--dark)"><h3>Consistency &amp; Planning</h3>' +
-        '<div class="small" style="display:flex;justify-content:space-between"><span>Active / Rest / Missed</span><strong style="color:var(--text)">' + data.activeDays + ' / ' + data.restDays + ' / ' + data.missedDays + '</strong></div>' +
+        '<div class="small" style="display:flex;justify-content:space-between"><span>Training / Rest / Rest Since Last Workout</span><strong style="color:var(--text)">' + data.trainingDays + ' / ' + data.restDays + ' / ' + data.restSinceLastWorkout + 'd</strong></div>' +
         '<div class="small" style="display:flex;justify-content:space-between"><span>Training Density</span><strong style="color:var(--text)">' + (data.range ? ((data.trainingDays / Math.max(getDateRangeDays(data.range.start, data.range.end).length, 1)) * 100).toFixed(1) : '0') + '%</strong></div>' +
         '<div class="small" style="display:flex;justify-content:space-between"><span>Weekday vs Weekend</span><strong style="color:var(--text)">' + data.weekdayMap.Weekday + ' / ' + data.weekdayMap.Weekend + '</strong></div>' +
         '<div class="small" style="display:flex;justify-content:space-between"><span>Planned vs Completed</span><strong style="color:var(--text)">' + data.plannedVsCompleted.planned + ' / ' + data.plannedVsCompleted.completed + '</strong></div>' +
@@ -4963,9 +4977,9 @@ function renderConsistency(targetId) {
   var range = getProgressRange();
   var days = getDateRangeDays(range.start, range.end);
   var todayStr = todayDateStr();
-  var completed = 0, completedDays = 0, restDays = 0, activeDays = 0, missed = 0, future = 0;
-  var streak = 0;
-  var inBreak = false;
+  var completed = 0, completedDays = 0, restDays = 0, activeDays = 0, future = 0;
+  var streak = 0, restSinceLastWorkout = 0;
+  var inBreak = false, foundLastWorkout = false;
   var items = [];
   for (var i = 0; i < days.length; i++) {
     var ds = days[i];
@@ -4973,48 +4987,50 @@ function renderConsistency(targetId) {
     var m   = meta[ds] || {};
     var isCompleted = dayLogs.some(function(log) { return log.status === 'completed'; });
     var completedCount = dayLogs.filter(function(log) { return log.status === 'completed'; }).length;
-    var isRest      = !!m.isRestDay;
-    var isPast      = ds < todayStr;
+    var isManualRest = !!m.isRestDay;
     var isFuture    = ds > todayStr;
+    var isToday     = ds === todayStr;
     completed += completedCount;
-    if (isCompleted) completedDays++;
-    if (isRest) restDays++;
-    if (isCompleted || isRest) activeDays++;
-    if (!isCompleted && !isRest && isPast) missed++;
+    if (isCompleted) { completedDays++; activeDays++; }
+    else if (!isFuture && !isToday) { restDays++; activeDays++; } // auto-rest: strictly past non-workout days only
     if (isFuture) future++;
-    items.push({ ds: ds, isCompleted: isCompleted, isRest: isRest, isPast: isPast, isFuture: isFuture, isToday: ds === todayStr });
+    items.push({ ds: ds, isCompleted: isCompleted, isManualRest: isManualRest, isFuture: isFuture, isToday: isToday });
   }
   for (var j = items.length - 1; j >= 0; j--) {
     var day = items[j];
-    if (day.isFuture) continue;
-    if (day.isCompleted || day.isRest) {
+    if (day.isFuture || day.isToday) continue; // today not yet determined
+    if (day.isCompleted) {
       if (!inBreak) streak++;
+      foundLastWorkout = true;
     } else {
-      inBreak = true;
+      if (!foundLastWorkout) restSinceLastWorkout++;
+      if (day.isManualRest) {
+        if (!inBreak) streak++; // manual rest keeps streak
+      } else {
+        inBreak = true; // auto-rest breaks streak
+      }
     }
   }
   var totalDays = days.length || 1;
   var pct = function(v) { return (v / totalDays * 100).toFixed(2); };
-  var donePct = Math.round(activeDays / totalDays * 100);
+  var donePct = Math.round(completedDays / totalDays * 100);
   var a = pct(completedDays);
   var b = (completedDays + restDays) / totalDays * 100;
-  var c = (completedDays + restDays + missed) / totalDays * 100;
   var donutBg = 'conic-gradient(' +
     'var(--green) 0% ' + a + '%,' +
     'var(--rest) ' + a + '% ' + b.toFixed(2) + '%,' +
-    'var(--red) ' + b.toFixed(2) + '% ' + c.toFixed(2) + '%,' +
-    'var(--soft) ' + c.toFixed(2) + '% 100%)';
+    'var(--soft) ' + b.toFixed(2) + '% 100%)';
   var vizHTML =
     '<div class="consistency-viz">' +
       '<div class="consistency-donut" style="background:' + donutBg + '">' +
-        '<div class="consistency-donut-center"><strong>' + donePct + '%</strong><span>kept plan</span></div>' +
+        '<div class="consistency-donut-center"><strong>' + donePct + '%</strong><span>workout days</span></div>' +
       '</div>' +
       '<div>' +
         '<div class="consistency-legend">' +
           '<div class="consistency-legend-item"><strong style="color:var(--green)">' + completed + '</strong><span>Completed</span></div>' +
           '<div class="consistency-legend-item"><strong style="color:var(--rest)">' + restDays + '</strong><span>Rest</span></div>' +
-          '<div class="consistency-legend-item"><strong style="color:var(--red)">' + missed + '</strong><span>Missed</span></div>' +
           '<div class="consistency-legend-item"><strong style="color:var(--muted)">' + future + '</strong><span>Future</span></div>' +
+          '<div class="consistency-legend-item"><strong style="color:var(--accent)">' + restSinceLastWorkout + 'd</strong><span>Rest Since Last Workout</span></div>' +
         '</div>' +
         '<div class="small" style="color:var(--muted)">Selected range: ' + escH(range.start) + ' to ' + escH(range.end) + '</div>' +
       '</div>' +
@@ -5023,12 +5039,12 @@ function renderConsistency(targetId) {
     '<div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:12px;">' +
       '<div style="text-align:center"><div style="font-size:28px;font-weight:700;color:var(--green)">' + completed + '</div><div style="font-size:12px;color:var(--muted)">Workouts<br>(' + totalDays + 'd)</div></div>' +
       '<div style="text-align:center"><div style="font-size:28px;font-weight:700;color:var(--rest)">' + restDays + '</div><div style="font-size:12px;color:var(--muted)">Rest Days<br>(' + totalDays + 'd)</div></div>' +
-      '<div style="text-align:center"><div style="font-size:28px;font-weight:700;color:var(--red)">' + missed + '</div><div style="font-size:12px;color:var(--muted)">Missed<br>(' + totalDays + 'd)</div></div>' +
+      '<div style="text-align:center"><div style="font-size:28px;font-weight:700;color:var(--accent)">' + restSinceLastWorkout + 'd</div><div style="font-size:12px;color:var(--muted)">Rest Since<br>Last Workout</div></div>' +
       '<div style="text-align:center"><div style="font-size:28px;font-weight:700;color:var(--yellow)">' + streak + '</div><div style="font-size:12px;color:var(--muted)">Current<br>Streak</div></div>' +
       '<div style="text-align:center"><div style="font-size:28px;font-weight:700;color:var(--text)">' + Math.round(activeDays / totalDays * 100) + '%</div><div style="font-size:12px;color:var(--muted)">Consistency<br>(' + totalDays + 'd)</div></div>' +
     '</div>' +
     vizHTML +
-    '<div style="margin-top:8px;font-size:11px;color:var(--muted)">Green = completed workouts, gray = rest days, red = missed days, gray = future days.</div>';
+    '<div style="margin-top:8px;font-size:11px;color:var(--muted)">Green = completed workouts · Gray = rest days · Orange = rest days since last workout</div>';
 }
 
 function renderWorkoutHistory(targetId) {
@@ -5237,7 +5253,7 @@ function progressOpenExercise(name) {
   progressView.page = 'exerciseDetail';
   progressView.exercise = decodeURIComponent(name);
   progressView.tab = 'summary';
-  progressView.metric = 'heaviest';
+  progressView.metric = null;
   renderProgressPage();
 }
 
@@ -5407,7 +5423,9 @@ function pExerciseRows(name) {
       var oneRm = sets.reduce(function(m, set) {
         return Math.max(m, estimate1RM(Number(set.weight || 0), Number(set.reps || 0)));
       }, 0);
-      rows.push({ date: entry.date, log: entry.log, ex: ex, sets: sets, volume: volume, reps: reps, maxWeight: maxWeight, maxReps: maxReps, minAssist: minAssist === Infinity ? 0 : minAssist, oneRm: oneRm });
+      var maxDuration = sets.reduce(function(m, set) { return Math.max(m, Number(set.duration || 0)); }, 0);
+      var totalDuration = sets.reduce(function(s, set) { return s + Number(set.duration || 0); }, 0);
+      rows.push({ date: entry.date, log: entry.log, ex: ex, sets: sets, volume: volume, reps: reps, maxWeight: maxWeight, maxReps: maxReps, minAssist: minAssist === Infinity ? 0 : minAssist, oneRm: oneRm, maxDuration: maxDuration, totalDuration: totalDuration });
     });
   });
   return rows;
@@ -5436,6 +5454,8 @@ function pMetricSeries(metric, rows) {
     else if (metric === 'sessionVolume') value = r.volume;
     else if (metric === 'totalReps') value = r.reps;
     else if (metric === 'mostReps') value = r.maxReps;
+    else if (metric === 'longestDuration') value = r.maxDuration;
+    else if (metric === 'totalDuration') value = r.totalDuration;
     return { date: r.date, label: shortDate(r.date), value: value };
   }).filter(function(p) { return p.value > 0; });
 }
@@ -5456,6 +5476,12 @@ function shortDate(ds) {
 function fmtKg(n) {
   if (!n) return '0 kg';
   return (Math.round(n * 100) / 100).toLocaleString() + ' kg';
+}
+
+function fmtDuration(secs) {
+  if (!secs) return '0s';
+  var m = Math.floor(secs / 60), s = Math.round(secs % 60);
+  return m ? m + 'm ' + s + 's' : s + 's';
 }
 
 function pLineChart(points, unit, barMode) {
@@ -5571,6 +5597,7 @@ function renderPCalendar() {
   // Compute streak for this month
   var streak = 0;
   var d = new Date(today + 'T00:00:00');
+  d.setDate(d.getDate() - 1); // start from yesterday — today isn't over yet
   while (true) {
     var ds = _dateToLocalStr(d);
     var dayLogs = _dailyLogList((getDailyLogs())[ds]);
@@ -5581,8 +5608,23 @@ function renderPCalendar() {
     d.setDate(d.getDate() - 1);
     if (streak > 365) break;
   }
+  // Compute rest days since last workout (strictly past days)
+  var restSinceLast = 0;
+  var allLogs = getDailyLogs();
+  var rd = new Date(today + 'T00:00:00');
+  rd.setDate(rd.getDate() - 1); // start from yesterday
+  for (var ri = 0; ri < 365; ri++) {
+    var rds = _dateToLocalStr(rd);
+    var rLogs = _dailyLogList(allLogs[rds]);
+    if (rLogs.some(function(l) { return l.status === 'completed'; })) break;
+    restSinceLast++;
+    rd.setDate(rd.getDate() - 1);
+  }
   var weekStreak = Math.floor(streak / 7);
-  var streakBar = '<div class="p-streak-bar"><div class="p-streak-icon">&#128293;</div><div class="p-streak-text">' + weekStreak + ' Week Streak</div></div>';
+  var streakBar = '<div class="p-streak-bar" style="display:flex;align-items:center;gap:20px">' +
+    '<div style="display:flex;align-items:center;gap:6px"><div class="p-streak-icon">&#128293;</div><div class="p-streak-text">' + weekStreak + ' Week · ' + streak + ' Day Streak</div></div>' +
+    '<div style="display:flex;align-items:center;gap:6px;font-size:16px;color:#fff;font-weight:600">&#128564; ' + restSinceLast + ' Rest Days</div>' +
+  '</div>';
   var calHeader = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">' +
     '<button class="p-icon-btn" onclick="progressSetCalendarMonth(-1)">&#8249;</button>' +
     '<div style="font-size:18px;font-weight:700;color:#fff">' + escH(first.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })) + '</div>' +
@@ -5595,11 +5637,10 @@ function renderPCalendar() {
     var ds2 = month + '-' + String(day).padStart(2, '0');
     var dayLogs2 = byDate[ds2] || [];
     var dayMeta2 = metaAll[ds2] || {};
-    var isRest = !!dayMeta2.isRestDay;
     var isToday = ds2 === today;
     var cls = 'p-cal-day';
     if (dayLogs2.length) cls += ' workout';
-    else if (isRest) cls += ' rest';
+    else if (ds2 < today) cls += ' rest'; // auto-rest: strictly past days without workout
     if (isToday) cls += ' today';
     var click = dayLogs2.length ? ' onclick="progressOpenWorkout(\'' + encodeURIComponent(ds2) + '\',\'' + encodeURIComponent(dayLogs2[0].id || '') + '\')" style="cursor:pointer"' : '';
     cells.push('<div class="' + cls + '"' + click + '>' + day + '</div>');
@@ -5971,27 +6012,67 @@ function renderPExerciseDetail() {
   if (progressView.tab === 'howto') return '<div class="p-empty">No instructions added.</div>';
   var rows = pExerciseRows(progressView.exercise);
   var ex = rows[rows.length - 1] ? rows[rows.length - 1].ex : {};
+  var trackingMode = getExerciseTrackingMode(ex);
   var prs = pExercisePrs(rows);
-  var metric = progressView.metric || 'heaviest';
+
+  var validMetrics, defaultMetric, unit, pills, prRows;
+  if (trackingMode === 'duration') {
+    validMetrics = ['longestDuration', 'totalDuration'];
+    defaultMetric = 'longestDuration';
+    unit = 's';
+    pills = metricPill('longestDuration', 'Longest Duration') + metricPill('totalDuration', 'Total Duration');
+    prRows = pPrRow('Longest Duration (Set)', prs.longestDuration ? fmtDuration(prs.longestDuration) : '—') +
+             pPrRow('Best Session Duration', prs.totalDuration ? fmtDuration(prs.totalDuration) : '—');
+  } else if (trackingMode === 'reps') {
+    validMetrics = ['totalReps', 'mostReps'];
+    defaultMetric = 'mostReps';
+    unit = 'reps';
+    pills = metricPill('totalReps', 'Total Reps') + metricPill('mostReps', 'Most Reps (Set)');
+    prRows = pPrRow('Most Reps (Set)', prs.mostReps ? prs.mostReps + ' reps' : '—') +
+             pPrRow('Total Reps (Session)', prs.totalReps ? prs.totalReps + ' reps' : '—');
+  } else if (trackingMode === 'reps_assist') {
+    validMetrics = ['mostReps', 'totalReps'];
+    defaultMetric = 'mostReps';
+    unit = 'reps';
+    pills = metricPill('mostReps', 'Most Reps (Set)') + metricPill('totalReps', 'Total Reps');
+    prRows = pPrRow('Most Reps (Set)', prs.mostReps ? prs.mostReps + ' reps' : '—') +
+             pPrRow('Total Reps (Session)', prs.totalReps ? prs.totalReps + ' reps' : '—');
+  } else if (trackingMode === 'sets_only') {
+    validMetrics = [];
+    defaultMetric = '';
+    unit = '';
+    pills = '';
+    prRows = '';
+  } else {
+    // reps_weight (default)
+    validMetrics = ['heaviest', '1rm', 'setVolume', 'sessionVolume', 'totalReps', 'mostReps'];
+    defaultMetric = 'heaviest';
+    unit = 'kg';
+    pills = metricPill('heaviest', 'Heaviest Weight') + metricPill('1rm', 'One Rep Max') + metricPill('setVolume', 'Best Set Volume') +
+            metricPill('sessionVolume', 'Session Volume') + metricPill('totalReps', 'Total Reps') + metricPill('mostReps', 'Most Reps (Set)');
+    prRows = pPrRow('Heaviest Weight', prs.heaviest ? fmtKg(prs.heaviest) : '—') +
+             pPrRow('Best 1RM', prs.oneRm ? fmtKg(prs.oneRm) : '—') +
+             pPrRow('Best Set Volume', prs.bestSet ? prs.bestSet.weight + 'kg x ' + prs.bestSet.reps : '—') +
+             pPrRow('Best Session Volume', prs.sessionVolume ? fmtKg(prs.sessionVolume) : '—') +
+             pPrRow('Most Reps (Set)', prs.mostReps ? prs.mostReps + ' reps' : '—');
+  }
+
+  // Reset metric to mode default if current metric doesn't apply
+  var metric = progressView.metric;
+  if (!metric || validMetrics.indexOf(metric) === -1) metric = progressView.metric = defaultMetric;
+
   var series = pMetricSeries(metric, rows);
   var top = series.length ? series[series.length - 1].value : 0;
-  var unit = metric === 'totalReps' || metric === 'mostReps' ? 'reps' : 'kg';
+  var topLabel = trackingMode === 'duration' ? fmtDuration(top) :
+    (metric === 'totalReps' || metric === 'mostReps' ? prettyNum(top) + ' reps' : prettyNum(top) + (unit ? ' ' + unit : ''));
+
   return '<h3 style="color:#fff;margin-top:0">' + escH(progressView.exercise) + '</h3>' +
     '<div class="p-row-sub">Primary: ' + escH(ex.muscleGroup || 'Unspecified') + '</div>' +
-    '<div class="p-line-title" style="margin-top:22px"><div class="p-big-stat">' + prettyNum(top) + ' ' + unit + '<span>' + (series.length ? escH(series[series.length - 1].label) : '') + '</span></div><div class="p-range">' + pRangeLabel() + '⌄</div></div>' +
+    '<div class="p-line-title" style="margin-top:22px"><div class="p-big-stat">' + topLabel + '<span>' + (series.length ? escH(series[series.length - 1].label) : '') + '</span></div><div class="p-range">' + pRangeLabel() + '⌄</div></div>' +
     pLineChart(series, unit, false) +
-    '<div class="p-pills">' +
-      metricPill('heaviest','Heaviest Weight') + metricPill('1rm','One Rep Max') + metricPill('setVolume','Best Set Volume') +
-      metricPill('sessionVolume','Session Volume') + metricPill('totalReps','Total Reps') + metricPill('mostReps','Most Reps (Set)') +
-    '</div>' +
+    (pills ? '<div class="p-pills">' + pills + '</div>' : '') +
     '<div class="p-section-label"><span style="color:#ffd400">●</span> Personal Records</div>' +
-    '<div class="p-kv">' +
-      pPrRow('Heaviest Weight', prs.heaviest ? fmtKg(prs.heaviest) : '—') +
-      pPrRow('Best 1RM', prs.oneRm ? fmtKg(prs.oneRm) : '—') +
-      pPrRow('Best Set Volume', prs.bestSet ? prs.bestSet.weight + 'kg x ' + prs.bestSet.reps : '—') +
-      pPrRow('Best Session Volume', prs.sessionVolume ? fmtKg(prs.sessionVolume) : '—') +
-      pPrRow('Most Reps (Set)', prs.mostReps ? prs.mostReps + ' reps' : '—') +
-    '</div>';
+    (prRows ? '<div class="p-kv">' + prRows + '</div>' : '<div class="p-empty">No records available.</div>');
 }
 
 function metricPill(key, label) {
@@ -5999,12 +6080,15 @@ function metricPill(key, label) {
 }
 
 function pExercisePrs(rows) {
-  var prs = { heaviest: 0, oneRm: 0, bestSet: null, sessionVolume: 0, mostReps: 0 };
+  var prs = { heaviest: 0, oneRm: 0, bestSet: null, sessionVolume: 0, mostReps: 0, totalReps: 0, longestDuration: 0, totalDuration: 0 };
   rows.forEach(function(r) {
     prs.heaviest = Math.max(prs.heaviest, r.maxWeight);
     prs.oneRm = Math.max(prs.oneRm, r.oneRm);
     prs.sessionVolume = Math.max(prs.sessionVolume, r.volume);
     prs.mostReps = Math.max(prs.mostReps, r.maxReps);
+    prs.totalReps = Math.max(prs.totalReps, r.reps);
+    prs.longestDuration = Math.max(prs.longestDuration, r.maxDuration);
+    prs.totalDuration = Math.max(prs.totalDuration, r.totalDuration);
     r.sets.forEach(function(s) {
       var vol = pSetVolume(s);
       if (!prs.bestSet || vol > prs.bestSet.volume) prs.bestSet = { weight: s.weight || 0, reps: s.reps || 0, volume: vol };
