@@ -5899,7 +5899,15 @@ function prFilterToggleType(t) {
 }
 function prFilterSetMuscle(v) { progressView.prFilter.muscle = v; renderProgressPage(); }
 function prFilterSetSort(v)   { progressView.prFilter.sort   = v; renderProgressPage(); }
-function prFilterSetQuery(v)  { progressView.prFilter.query  = v; renderProgressPage(); }
+function prFilterSetQuery(v) {
+  progressView.prFilter.query = v;
+  var body = document.querySelector('#progressApp .progress-body');
+  if (body) {
+    body.innerHTML = renderProgressViewBody();
+    var inp = document.getElementById('prSearchInput');
+    if (inp) { inp.focus(); inp.setSelectionRange(v.length, v.length); }
+  }
+}
 function prFilterClear() {
   progressView.prFilter.types  = [];
   progressView.prFilter.muscle = '';
@@ -6008,7 +6016,7 @@ function renderStatPersonalRecords() {
 
   var header =
     '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">' +
-      '<input type="text" placeholder="Search exercise…" value="' + escH(f.query || '') + '" oninput="prFilterSetQuery(this.value)" style="flex:1;padding:9px 12px;border-radius:8px;border:1px solid ' + (f.query ? 'var(--accent)' : '#333') + ';background:#1a1a1a;color:#fff;font-size:13px;outline:none">' +
+      '<input id="prSearchInput" type="text" placeholder="Search exercise…" value="' + escH(f.query || '') + '" oninput="prFilterSetQuery(this.value)" style="flex:1;padding:9px 12px;border-radius:8px;border:1px solid ' + (f.query ? 'var(--accent)' : '#333') + ';background:#1a1a1a;color:#fff;font-size:13px;outline:none">' +
       '<button onclick="prFilterToggleOpen()" style="' + filterBtnStyle + ';flex-shrink:0">' +
         '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 4h12M4 8h8M6 12h4"/></svg>' +
         'Filter' + (hasFilter ? ' ●' : '') +
