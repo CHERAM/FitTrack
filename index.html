@@ -753,18 +753,6 @@
       <div id="trackerLoggedWorkoutContent"></div>
     </div>
 
-    <h3 style="margin-top:4px">Vitals &amp; Macros</h3>
-    <div class="tracker-grid">
-      <div class="tracker-cell"><label>Calories (kcal)</label><input type="number" id="trackerCalories" placeholder="0" min="0"></div>
-      <div class="tracker-cell"><label>Protein (g)</label><input type="number" id="trackerProtein" placeholder="0" min="0"></div>
-      <div class="tracker-cell"><label>Carbs (g)</label><input type="number" id="trackerCarbs" placeholder="0" min="0"></div>
-      <div class="tracker-cell"><label>Fat (g)</label><input type="number" id="trackerFat" placeholder="0" min="0"></div>
-      <div class="tracker-cell"><label>Water (L)</label><input type="number" id="trackerWater" placeholder="0" step="0.1" min="0"></div>
-      <div class="tracker-cell"><label>Sleep (hrs)</label><input type="number" id="trackerSleep" placeholder="0" step="0.5" min="0"></div>
-      <div class="tracker-cell"><label>Body Weight (kg)</label><input type="number" id="trackerWeight" placeholder="0" step="0.1" min="0"></div>
-      <div class="tracker-cell"><label>Body Fat (%)</label><input type="number" id="trackerBodyFat" placeholder="leave blank" step="0.1" min="0" max="60"></div>
-    </div>
-
     <div class="checkbox-row">
       <input type="checkbox" id="trackerRestDay" style="flex-shrink:0">
       <label for="trackerRestDay">Rest Day</label>
@@ -1868,15 +1856,6 @@ function loadTrackerForDate(dateStr) {
   // Logged workout from session
   renderTrackerLoggedWorkout(logs);
 
-  // Vitals
-  document.getElementById('trackerCalories').value = meta.calories   != null ? meta.calories   : '';
-  document.getElementById('trackerProtein').value  = meta.protein    != null ? meta.protein    : '';
-  document.getElementById('trackerCarbs').value    = meta.carbs      != null ? meta.carbs      : '';
-  document.getElementById('trackerFat').value      = meta.fat        != null ? meta.fat        : '';
-  document.getElementById('trackerWater').value    = meta.water      != null ? meta.water      : '';
-  document.getElementById('trackerSleep').value    = meta.sleep      != null ? meta.sleep      : '';
-  document.getElementById('trackerWeight').value   = meta.bodyWeight != null ? meta.bodyWeight : '';
-  document.getElementById('trackerBodyFat').value  = meta.bodyFat    != null ? meta.bodyFat    : '';
   document.getElementById('trackerRestDay').checked = meta.isRestDay || false;
   document.getElementById('trackerNotes').value    = meta.notes || '';
 }
@@ -2101,17 +2080,9 @@ function saveTrackerData() {
 
   var meta = getDailyMeta();
   meta[dateStr] = Object.assign(meta[dateStr] || {}, {
-    plannedRoutines:  trackerPlannedRoutines.slice(),
-    calories:    numOrNull(document.getElementById('trackerCalories').value),
-    protein:     numOrNull(document.getElementById('trackerProtein').value),
-    carbs:       numOrNull(document.getElementById('trackerCarbs').value),
-    fat:         numOrNull(document.getElementById('trackerFat').value),
-    water:       numOrNull(document.getElementById('trackerWater').value),
-    sleep:       numOrNull(document.getElementById('trackerSleep').value),
-    bodyWeight:  numOrNull(document.getElementById('trackerWeight').value),
-    bodyFat:     numOrNull(document.getElementById('trackerBodyFat').value),
-    isRestDay:   document.getElementById('trackerRestDay').checked,
-    notes:       document.getElementById('trackerNotes').value
+    plannedRoutines: trackerPlannedRoutines.slice(),
+    isRestDay:       document.getElementById('trackerRestDay').checked,
+    notes:           document.getElementById('trackerNotes').value
   });
   saveDailyMeta(meta);
   refreshOverviewStats();
@@ -4416,14 +4387,6 @@ function getWeeklyVolumeKg() {
   return Math.round(total);
 }
 
-function getRecoveryScore(metaToday) {
-  var sleep = Number(metaToday.sleep || 0);
-  var water = Number(metaToday.water || 0);
-  var protein = Number(metaToday.protein || 0);
-  var score = Math.min(100, Math.round((sleep / 8) * 38 + (water / 3) * 24 + (protein / 140) * 38));
-  return score > 0 ? score : 0;
-}
-
 function renderHomePage() {
   var wrap = document.getElementById('homeDashboard');
   if (!wrap) return;
@@ -4433,18 +4396,11 @@ function renderHomePage() {
   var todayLogs = _getDailyLogEntry(today);
   var planned = metaToday.plannedRoutines || [];
   var completedToday = todayLogs.filter(function(log) { return log.status === 'completed'; }).length;
-  var calories = Number(metaToday.calories || 0);
-  var protein = Number(metaToday.protein || 0);
-  var water = Number(metaToday.water || 0);
-  var sleep = Number(metaToday.sleep || 0);
   var goals = getGoals();
   var streak = calcWorkoutStreak();
   var weeklyVolume = getWeeklyVolumeKg();
   var latestWeight = getLatestValueMeta('bodyWeight');
   var latestBodyFat = getLatestValueMeta('bodyFat');
-  var recovery = getRecoveryScore(metaToday);
-  var calorieTarget = 2200;
-  var calorieRemain = Math.max(0, calorieTarget - calories);
   var weightGoal = goals.targetWeight != null ? goals.targetWeight + ' kg target' : 'Set target in settings';
   wrap.innerHTML =
     '<div class="hero-grid" style="margin-bottom:18px">' +
@@ -4461,7 +4417,7 @@ function renderHomePage() {
       '<div class="home-panel">' +
         '<div class="eyebrow" style="margin-bottom:12px">Quick actions</div>' +
         '<div class="home-actions">' +
-          '<button class="action-tile" onclick="showSection(\'daily-tracker\', document.querySelector(\'.tab[data-section=&quot;daily-tracker&quot;]\'))"><div><strong>Log today</strong><span>Tracker, macros, notes</span></div><span>→</span></button>' +
+          '<button class="action-tile" onclick="showSection(\'daily-tracker\', document.querySelector(\'.tab[data-section=&quot;daily-tracker&quot;]\'))"><div><strong>Log today</strong><span>Rest day, routines, notes</span></div><span>→</span></button>' +
           '<button class="action-tile" onclick="showSection(\'workout-session\', document.querySelector(\'.tab[data-section=&quot;workout-session&quot;]\'))"><div><strong>Start workout</strong><span>Jump into session mode</span></div><span>→</span></button>' +
           '<button class="action-tile" onclick="showSection(\'workout-session\', document.querySelector(\'.tab[data-section=&quot;workout-session&quot;]\'))"><div><strong>Manage routines</strong><span>Open Workout page</span></div><span>→</span></button>' +
           '<button class="action-tile" onclick="showSection(\'progress\', document.querySelector(\'.tab[data-section=&quot;progress&quot;]\'))"><div><strong>Review progress</strong><span>Trends, history, PRs</span></div><span>→</span></button>' +
@@ -5221,7 +5177,7 @@ function _nutStat(label, val, color, count) {
    PROGRESS V2
    ============================================================ */
 
-var progressView = { page: 'dashboard', exercise: '', workoutDate: '', workoutId: '', tab: 'summary', metric: 'volume', query: '', statDetail: '', calendarMonth: '', filterType: '', filterMuscle: '' };
+var progressView = { page: 'dashboard', exercise: '', workoutDate: '', workoutId: '', tab: 'summary', metric: 'volume', query: '', statDetail: '', calendarMonth: '', filterType: '', filterMuscle: '', measureMetric: 'bodyWeight' };
 
 function progressSetView(page) {
   progressView.page = page;
@@ -5236,6 +5192,10 @@ function progressBack() {
   if (progressView.page === 'statDetail') {
     progressView.page = 'statistics';
     progressView.statDetail = '';
+    return renderProgressPage();
+  }
+  if (progressView.page === 'add-measurement') {
+    progressView.page = 'measures';
     return renderProgressPage();
   }
   if (progressView.page === 'dashboard') return;
@@ -5336,12 +5296,17 @@ function renderProgressPage() {
         '<div class="progress-titlebar">' +
           backBtn +
           '<h2>' + escH(title) + '</h2>' +
-          '<button class="p-range-btn" onclick="progressToggleRangePicker()">' + pRangeLabel() + ' &#9662;</button>' +
+          (progressView.page === 'measures'
+            ? '<button class="p-icon-btn" onclick="openAddMeasurement()" title="Add measurement" style="font-size:22px;font-weight:700">+</button>'
+            : progressView.page === 'add-measurement'
+              ? '<div style="width:52px"></div>'
+              : '<button class="p-range-btn" onclick="progressToggleRangePicker()">' + pRangeLabel() + ' &#9662;</button>') +
         '</div>' + tabs +
         rangeDropdown +
       '</div>' +
       '<div class="progress-body">' + renderProgressViewBody() + '</div>' +
     '</div>';
+  if (progressView.page === 'add-measurement') setTimeout(amUpdateCalc, 0);
 }
 
 function progressTitle() {
@@ -5349,6 +5314,7 @@ function progressTitle() {
   if (progressView.page === 'statDetail') return statDetailTitle();
   if (progressView.page === 'calendar') return 'Calendar';
   if (progressView.page === 'measures') return 'Measurements';
+  if (progressView.page === 'add-measurement') return 'Add Measurements';
   if (progressView.page === 'exercises') return 'Exercises';
   if (progressView.page === 'exerciseDetail') return progressView.exercise || 'Exercise';
   if (progressView.page === 'workoutDetail') return 'Workout';
@@ -5364,6 +5330,7 @@ function renderProgressViewBody() {
   if (progressView.page === 'statDetail') return renderPStatDetail();
   if (progressView.page === 'calendar') return renderPCalendar();
   if (progressView.page === 'measures') return renderPMeasures();
+  if (progressView.page === 'add-measurement') return renderAddMeasurementView();
   if (progressView.page === 'exercises') return renderPExercises();
   if (progressView.page === 'exerciseDetail') return renderPExerciseDetail();
   if (progressView.page === 'workoutDetail') return renderPWorkoutDetail();
@@ -5640,6 +5607,7 @@ function renderPCalendar() {
     var isToday = ds2 === today;
     var cls = 'p-cal-day';
     if (dayLogs2.length) cls += ' workout';
+    else if (dayMeta2.isRestDay) cls += ' rest';
     else if (ds2 < today) cls += ' rest'; // auto-rest: strictly past days without workout
     if (isToday) cls += ' today';
     var click = dayLogs2.length ? ' onclick="progressOpenWorkout(\'' + encodeURIComponent(ds2) + '\',\'' + encodeURIComponent(dayLogs2[0].id || '') + '\')" style="cursor:pointer"' : '';
@@ -5906,20 +5874,209 @@ function pInfoRow(title, sub, value) {
   return '<div class="p-row"><div class="p-medal">⌁</div><div class="p-row-main"><div class="p-row-title">' + escH(title) + '</div><div class="p-row-sub">' + escH(sub) + '</div></div><div class="p-row-value">' + escH(value) + '</div></div>';
 }
 
+var _measurePills = [
+  { key: 'bodyWeight', label: 'Weight',   unit: 'kg' },
+  { key: 'bodyFat',    label: 'Body Fat', unit: '%'  },
+  { key: 'waist',      label: 'Waist',    unit: 'cm' },
+  { key: 'hips',       label: 'Hips',     unit: 'cm' },
+  { key: 'bicepL',     label: 'Bicep',    unit: 'cm' },
+  { key: 'calfL',      label: 'Calf',     unit: 'cm' }
+];
+
+function measureSetMetric(key) {
+  progressView.measureMetric = key;
+  renderProgressPage();
+}
+
 function renderPMeasures() {
   var meta = getDailyMeta();
   var range = getProgressRange();
-  var points = Object.keys(meta).filter(function(ds) { return ds >= range.start && ds <= range.end && meta[ds].bodyWeight != null; }).sort().map(function(ds) {
-    return { date: ds, label: shortDate(ds), value: Number(meta[ds].bodyWeight) };
+  var metric = progressView.measureMetric || 'bodyWeight';
+  var pill = _measurePills.find(function(p) { return p.key === metric; }) || _measurePills[0];
+  var unit = pill.unit;
+  var points = Object.keys(meta).filter(function(ds) {
+    return ds >= range.start && ds <= range.end && meta[ds][metric] != null;
+  }).sort().map(function(ds) {
+    return { date: ds, label: shortDate(ds), value: Number(meta[ds][metric]) };
   });
   var last = points.length ? points[points.length - 1] : null;
-  return '<div class="p-line-title"><div class="p-big-stat">' + (last ? last.value + 'kg' : '--') + (last ? '<span>' + escH(last.label) + '</span>' : '') + '</div><div class="p-range">' + pRangeLabel() + '⌄</div></div>' +
-    pLineChart(points, 'kg', false) +
-    '<div class="p-pills"><button class="p-pill active">Weight</button></div>' +
-    '<div class="p-section-label">Weight History</div>' +
+  var pillsHtml = '<div class="p-pills">' + _measurePills.map(function(p) {
+    return '<button class="p-pill' + (metric === p.key ? ' active' : '') + '" onclick="measureSetMetric(\'' + p.key + '\')">' + p.label + '</button>';
+  }).join('') + '</div>';
+  return '<div class="p-line-title"><div class="p-big-stat">' + (last ? last.value + unit : '--') + (last ? '<span>' + escH(last.label) + '</span>' : '') + '</div></div>' +
+    pLineChart(points, unit, false) +
+    pillsHtml +
+    '<div class="p-section-label">' + pill.label + ' History</div>' +
     '<div class="p-list">' + (points.length ? points.slice().reverse().map(function(p) {
-      return '<div class="p-row"><div class="p-row-title">' + escH(p.label) + '</div><div class="p-row-value">' + p.value + 'kg</div></div>';
+      return '<div class="p-row"><div class="p-row-title">' + escH(p.label) + '</div><div class="p-row-value">' + p.value + unit + '</div></div>';
     }).join('') : '<div class="p-empty">No measurements logged.</div>') + '</div>';
+}
+
+function openAddMeasurement() {
+  progressView.page = 'add-measurement';
+  renderProgressPage();
+}
+
+function amLoadDate(dateStr) {
+  var meta = getDailyMeta()[dateStr] || {};
+  var fields = ['amWeight','amBodyFat','amLbm','amWaist','amNeck','amShoulder','amChest','amBicepL','amBicepR','amForearmL','amForearmR','amAbdomen','amHips','amThighL','amThighR','amCalfL','amCalfR'];
+  var keys   = ['bodyWeight','bodyFat','leanBodyMass','waist','neck','shoulder','chest','bicepL','bicepR','forearmL','forearmR','abdomen','hips','thighL','thighR','calfL','calfR'];
+  fields.forEach(function(id, i) {
+    var el = document.getElementById(id);
+    if (el) el.value = meta[keys[i]] != null ? meta[keys[i]] : '';
+  });
+  amUpdateCalc();
+}
+
+function amUpdateCalc() {
+  var weight = parseFloat(document.getElementById('amWeight').value) || 0;
+  var bodyFatPct = parseFloat(document.getElementById('amBodyFat').value);
+  var lbmInput = parseFloat(document.getElementById('amLbm').value);
+
+  // Auto-calculate LBM if weight + body fat are set and LBM field is empty or stale
+  var lbm = 0;
+  if (!isNaN(bodyFatPct) && weight > 0) {
+    lbm = weight * (1 - bodyFatPct / 100);
+    lbm = Math.round(lbm * 10) / 10;
+    var lbmEl = document.getElementById('amLbm');
+    if (lbmEl && lbmEl.dataset.userEdited !== '1') {
+      lbmEl.value = lbm;
+    } else if (!isNaN(lbmInput)) {
+      lbm = lbmInput;
+    }
+  } else if (!isNaN(lbmInput)) {
+    lbm = lbmInput;
+  }
+
+  var activityMult = parseFloat(document.getElementById('amActivity').value) || 1.55;
+  var goalMult = parseFloat(document.getElementById('amGoal').value) || 1.0;
+
+  var bmr = 0;
+  if (lbm > 0) {
+    bmr = 370 + 21.6 * lbm;
+  } else if (weight > 0) {
+    bmr = 10 * weight + 6.25 * 170 - 5 * 30 + 5; // Mifflin-St Jeor generic
+  }
+  var tdee = bmr * activityMult;
+  var targetCal = Math.round(tdee * goalMult);
+  var targetPro = lbm > 0 ? Math.round(lbm * 2.0) : (weight > 0 ? Math.round(weight * 1.6) : 0);
+
+  var calEl = document.getElementById('amTargetCal');
+  var proEl = document.getElementById('amTargetPro');
+  if (calEl) calEl.textContent = targetCal > 0 ? targetCal + ' kcal' : '--';
+  if (proEl) proEl.textContent = targetPro > 0 ? targetPro + ' g' : '--';
+}
+
+function saveAddMeasurement() {
+  var dateStr = document.getElementById('amDate').value;
+  if (!dateStr) { alert('Please select a date.'); return; }
+
+  function fv(id) { var v = parseFloat(document.getElementById(id).value); return isNaN(v) ? null : v; }
+  var weight = fv('amWeight');
+  var bodyFat = fv('amBodyFat');
+  var lbm = fv('amLbm');
+  if (weight != null && bodyFat != null && lbm == null) {
+    lbm = Math.round(weight * (1 - bodyFat / 100) * 10) / 10;
+  }
+
+  var activityMult = parseFloat(document.getElementById('amActivity').value) || 1.55;
+  var goalMult = parseFloat(document.getElementById('amGoal').value) || 1.0;
+  var bmr = 0;
+  if (lbm) { bmr = 370 + 21.6 * lbm; }
+  else if (weight) { bmr = 10 * weight + 6.25 * 170 - 5 * 30 + 5; }
+  var targetCal = bmr > 0 ? Math.round(bmr * activityMult * goalMult) : null;
+  var targetPro = lbm ? Math.round(lbm * 2.0) : (weight ? Math.round(weight * 1.6) : null);
+
+  var meta = getDailyMeta();
+  var entry = meta[dateStr] || {};
+  if (weight != null)  entry.bodyWeight   = weight;
+  if (bodyFat != null) entry.bodyFat      = bodyFat;
+  if (lbm != null)     entry.leanBodyMass = lbm;
+  if (fv('amWaist')    != null) entry.waist    = fv('amWaist');
+  if (fv('amNeck')     != null) entry.neck     = fv('amNeck');
+  if (fv('amShoulder') != null) entry.shoulder = fv('amShoulder');
+  if (fv('amChest')    != null) entry.chest    = fv('amChest');
+  if (fv('amBicepL')   != null) entry.bicepL   = fv('amBicepL');
+  if (fv('amBicepR')   != null) entry.bicepR   = fv('amBicepR');
+  if (fv('amForearmL') != null) entry.forearmL = fv('amForearmL');
+  if (fv('amForearmR') != null) entry.forearmR = fv('amForearmR');
+  if (fv('amAbdomen')  != null) entry.abdomen  = fv('amAbdomen');
+  if (fv('amHips')     != null) entry.hips     = fv('amHips');
+  if (fv('amThighL')   != null) entry.thighL   = fv('amThighL');
+  if (fv('amThighR')   != null) entry.thighR   = fv('amThighR');
+  if (fv('amCalfL')    != null) entry.calfL    = fv('amCalfL');
+  if (fv('amCalfR')    != null) entry.calfR    = fv('amCalfR');
+  if (targetCal != null) entry.calories = targetCal;
+  if (targetPro != null) entry.protein  = targetPro;
+  meta[dateStr] = entry;
+  saveDailyMeta(meta);
+  refreshOverviewStats();
+  progressView.page = 'measures';
+  renderProgressPage();
+}
+
+function renderAddMeasurementView() {
+  var today = todayDateStr();
+  var meta = getDailyMeta()[today] || {};
+  function fld(id, key, label, step, unit) {
+    var val = meta[key] != null ? meta[key] : '';
+    return '<div class="tracker-cell"><label>' + label + (unit ? ' (' + unit + ')' : '') + '</label>' +
+      '<input type="number" id="' + id + '" value="' + val + '" placeholder="--" step="' + (step || '0.1') + '" min="0"' +
+      (id === 'amLbm' ? ' oninput="this.dataset.userEdited=\'1\';amUpdateCalc()"' : ' oninput="amUpdateCalc()"') +
+      '></div>';
+  }
+  var savedActivity = meta._amActivity || '1.55';
+  var savedGoal     = meta._amGoal     || '1.0';
+  return '<div style="padding-bottom:24px">' +
+    '<div class="form-group" style="margin-bottom:18px">' +
+      '<label>Date</label>' +
+      '<input type="date" id="amDate" value="' + today + '" onchange="amLoadDate(this.value)" style="padding:10px 12px;border-radius:10px;border:1px solid var(--soft);background:var(--dark);color:white;font-size:14px;width:100%;box-sizing:border-box">' +
+    '</div>' +
+    '<div class="p-section-label">Body Measurements</div>' +
+    '<div class="tracker-grid">' +
+      fld('amWeight',   'bodyWeight',   'Body Weight', '0.1', 'kg') +
+      fld('amBodyFat',  'bodyFat',      'Body Fat',    '0.1', '%') +
+      fld('amLbm',      'leanBodyMass', 'Lean Body Mass', '0.1', 'kg') +
+      fld('amWaist',    'waist',        'Waist',       '0.5', 'cm') +
+      fld('amNeck',     'neck',         'Neck',        '0.5', 'cm') +
+      fld('amShoulder', 'shoulder',     'Shoulder',    '0.5', 'cm') +
+      fld('amChest',    'chest',        'Chest',       '0.5', 'cm') +
+      fld('amBicepL',   'bicepL',       'Left Bicep',  '0.5', 'cm') +
+      fld('amBicepR',   'bicepR',       'Right Bicep', '0.5', 'cm') +
+      fld('amForearmL', 'forearmL',     'Left Forearm','0.5', 'cm') +
+      fld('amForearmR', 'forearmR',     'Right Forearm','0.5','cm') +
+      fld('amAbdomen',  'abdomen',      'Abdomen',     '0.5', 'cm') +
+      fld('amHips',     'hips',         'Hips',        '0.5', 'cm') +
+      fld('amThighL',   'thighL',       'Left Thigh',  '0.5', 'cm') +
+      fld('amThighR',   'thighR',       'Right Thigh', '0.5', 'cm') +
+      fld('amCalfL',    'calfL',        'Left Calf',   '0.5', 'cm') +
+      fld('amCalfR',    'calfR',        'Right Calf',  '0.5', 'cm') +
+    '</div>' +
+    '<div class="p-section-label" style="margin-top:18px">Calorie &amp; Protein Calculator</div>' +
+    '<div class="form-group">' +
+      '<label>Activity Level</label>' +
+      '<select id="amActivity" onchange="amUpdateCalc()" style="padding:10px 12px;border-radius:10px;border:1px solid var(--soft);background:var(--dark);color:white;font-size:14px;width:100%">' +
+        '<option value="1.2"' + (savedActivity==='1.2'?' selected':'') + '>Sedentary (desk job, no exercise)</option>' +
+        '<option value="1.375"' + (savedActivity==='1.375'?' selected':'') + '>Light (1–3 days/week)</option>' +
+        '<option value="1.55"' + (savedActivity==='1.55'?' selected':'') + '>Moderate (3–5 days/week)</option>' +
+        '<option value="1.725"' + (savedActivity==='1.725'?' selected':'') + '>Active (6–7 days/week)</option>' +
+        '<option value="1.9"' + (savedActivity==='1.9'?' selected':'') + '>Very Active (physical job + training)</option>' +
+      '</select>' +
+    '</div>' +
+    '<div class="form-group">' +
+      '<label>Goal</label>' +
+      '<select id="amGoal" onchange="amUpdateCalc()" style="padding:10px 12px;border-radius:10px;border:1px solid var(--soft);background:var(--dark);color:white;font-size:14px;width:100%">' +
+        '<option value="0.8"' + (savedGoal==='0.8'?' selected':'') + '>Cut (−20%)</option>' +
+        '<option value="1.0"' + (savedGoal==='1.0'?' selected':'') + '>Maintain (±0%)</option>' +
+        '<option value="1.15"' + (savedGoal==='1.15'?' selected':'') + '>Bulk (+15%)</option>' +
+      '</select>' +
+    '</div>' +
+    '<div class="tracker-grid" style="margin-bottom:18px">' +
+      '<div class="tracker-cell"><label>Target Calories</label><div id="amTargetCal" style="font-size:22px;font-weight:700;color:var(--accent);padding:8px 0">--</div></div>' +
+      '<div class="tracker-cell"><label>Target Protein</label><div id="amTargetPro" style="font-size:22px;font-weight:700;color:var(--accent);padding:8px 0">--</div></div>' +
+    '</div>' +
+    '<button class="btn-success-fill" onclick="saveAddMeasurement()" style="padding:12px 28px;font-size:15px;width:100%">Save Measurements</button>' +
+  '</div>';
 }
 
 function progressClearFilters() {
