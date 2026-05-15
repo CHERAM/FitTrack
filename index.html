@@ -208,6 +208,7 @@
   /* ---- Active session exercise card ---- */
   .active-ex-card{background:var(--dark);border:1px solid var(--soft);border-radius:14px;margin-bottom:14px;overflow:hidden;}
   .active-ex-header{display:flex;justify-content:space-between;align-items:center;padding:12px 14px 10px;}
+  .session-ex-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;}
   .active-set-cols{display:grid;padding:4px 14px;font-size:11px;color:var(--muted);font-weight:bold;text-transform:uppercase;border-top:1px solid var(--soft);}
   .active-set-row{display:grid;align-items:center;padding:5px 14px;border-top:1px solid rgba(255,255,255,.06);transition:.15s;gap:6px;}
   .active-set-row.set-done{background:rgba(52,211,153,.08);}
@@ -367,6 +368,9 @@
     .session-timer{font-size:32px}
     .tracker-grid{grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}
     .ex-header{flex-direction:column;align-items:stretch}
+    .ex-header .editor-remove-exercise{width:100%}
+    .active-ex-header{align-items:flex-start;gap:8px}
+    .session-ex-actions{flex-direction:column;align-items:flex-end;gap:6px}
     .steps-indicator .step-line{width:14px}
     .consistency-viz{grid-template-columns:1fr}
     .consistency-legend{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -1014,7 +1018,7 @@
     <input type="text" id="sessPickerSearch" placeholder="Search library..." oninput="renderSessionPickerList()" style="width:100%;padding:9px 12px;border-radius:10px;border:1px solid var(--soft);background:var(--dark);color:white;margin-bottom:10px;">
     <div id="sessionPickerList"></div>
     <div class="modal-footer">
-      <button onclick="closeSessionExercisePicker()">Done</button>
+      <button onclick="confirmSessionExercisePicker()">Done</button>
     </div>
   </div>
 </div>
@@ -2342,7 +2346,7 @@ function buildExerciseEditorHTML(ex, idx) {
       '<button class="btn-sm" onclick="editorMoveExercise(' + idx + ',-1)"' + (idx === 0 ? ' disabled' : '') + '>↑</button>' +
       '<button class="btn-sm" onclick="editorMoveExercise(' + idx + ',1)"' + (idx === _editorExercises.length - 1 ? ' disabled' : '') + '>↓</button>' +
       '<button class="btn-sm btn-success" onclick="saveEditorExerciseToLibrary(' + idx + ')">Save to Library</button>' +
-      '<button class="btn-sm btn-danger" onclick="editorRemoveExercise(' + idx + ')">Remove</button>' +
+      '<button class="btn-sm btn-danger editor-remove-exercise" onclick="editorRemoveExercise(' + idx + ')">Remove Exercise</button>' +
     '</div>' +
     '<div>' + setsHTML + '</div>' +
     '<div style="display:flex;gap:8px;margin-top:9px;flex-wrap:wrap">' +
@@ -2594,7 +2598,7 @@ function saveRoutineEdits() {
 var _activeSessionStorageKey = 'ft_activeSession';
 
 function _emptySessionState() {
-  return { step: 1, date: null, routineId: null, logId: null, startTime: null, timerInterval: null, activeExercises: [] };
+  return { step: 1, date: null, routineId: null, logId: null, startTime: null, timerInterval: null, activeExercises: [], removedRoutineExerciseIds: [] };
 }
 
 var sessionState = _emptySessionState();
@@ -2611,7 +2615,8 @@ function saveActiveSession() {
     routineId: sessionState.routineId,
     logId: sessionState.logId,
     startTime: sessionState.startTime,
-    activeExercises: sessionState.activeExercises
+    activeExercises: sessionState.activeExercises,
+    removedRoutineExerciseIds: sessionState.removedRoutineExerciseIds || []
   };
   localStorage.setItem(_sessionStorageKey(), JSON.stringify(payload));
 }
@@ -2628,6 +2633,7 @@ function _syncActiveSessionLog() {
   if (!log) return;
   log.routineId = sessionState.routineId;
   log.exercises = JSON.parse(JSON.stringify(sessionState.activeExercises || []));
+  log.removedRoutineExerciseIds = sessionState.removedRoutineExerciseIds || [];
   logs[sessionState.date] = dayLogs;
   localStorage.setItem(_k('ft_dailyLogs'), JSON.stringify(logs));
 }
@@ -2667,7 +2673,8 @@ function restoreActiveSession() {
         step: saved.step || 4,
         routineId: saved.routineId != null ? saved.routineId : log.routineId,
         startTime: saved.startTime || (log.startTime ? new Date(log.startTime).getTime() : Date.now()),
-        activeExercises: saved.activeExercises && saved.activeExercises.length ? saved.activeExercises : (log.exercises || [])
+        activeExercises: saved.activeExercises && saved.activeExercises.length ? saved.activeExercises : (log.exercises || []),
+        removedRoutineExerciseIds: saved.removedRoutineExerciseIds || log.removedRoutineExerciseIds || []
       };
     }
   }
@@ -2683,7 +2690,8 @@ function restoreActiveSession() {
       step: 4,
       routineId: latest.log.routineId || null,
       startTime: latest.log.startTime ? new Date(latest.log.startTime).getTime() : Date.now(),
-      activeExercises: latest.log.exercises || []
+      activeExercises: latest.log.exercises || [],
+      removedRoutineExerciseIds: latest.log.removedRoutineExerciseIds || []
     };
   }
   sessionState = _emptySessionState();
@@ -2693,6 +2701,7 @@ function restoreActiveSession() {
   sessionState.logId = match.log.id;
   sessionState.startTime = match.startTime;
   sessionState.activeExercises = JSON.parse(JSON.stringify(match.activeExercises || []));
+  sessionState.removedRoutineExerciseIds = match.removedRoutineExerciseIds || [];
   saveActiveSession();
   startSessionTimer();
   return true;
@@ -2917,6 +2926,7 @@ function startWorkout() {
 
   sessionState.startTime = Date.now();
   sessionState.activeExercises = JSON.parse(JSON.stringify(routine.exercises));
+  sessionState.removedRoutineExerciseIds = [];
   _writeSessionLog(routineId, routine.name);
   persistActiveSession();
   startSessionTimer();
@@ -2929,6 +2939,7 @@ function startEmptyWorkout() {
   sessionState.routineId = null;
   sessionState.startTime = Date.now();
   sessionState.activeExercises = [];
+  sessionState.removedRoutineExerciseIds = [];
   _writeSessionLog(null, 'Empty Workout');
   persistActiveSession();
   startSessionTimer();
@@ -2945,7 +2956,8 @@ function _writeSessionLog(routineId, routineName) {
     routineName: routineName,
     status:      'in_progress',
     startTime:   new Date().toISOString(),
-    exercises:   sessionState.activeExercises
+    exercises:   sessionState.activeExercises,
+    removedRoutineExerciseIds: sessionState.removedRoutineExerciseIds || []
   };
   dayLogs.push(logEntry);
   logs[sessionState.date] = dayLogs;
@@ -3098,7 +3110,10 @@ function renderActiveSession() {
           '<strong style="color:var(--accent)">' + escH(ex.name || '(unnamed)') + '</strong>' +
           (ex.muscleGroup ? '<span class="small" style="margin-left:8px;color:var(--muted)">' + escH(ex.muscleGroup) + '</span>' : '') +
         '</div>' +
-        '<span class="small" style="color:' + doneColor + '">' + doneCount + '/' + totalCount + ' sets</span>' +
+        '<div class="session-ex-actions">' +
+          '<span class="small" style="color:' + doneColor + '">' + doneCount + '/' + totalCount + ' sets</span>' +
+          '<button class="btn-sm btn-danger" data-session="true" onclick="sessionRemoveExerciseLive(' + ei + ')">Remove Exercise</button>' +
+        '</div>' +
       '</div>' +
       bodyHTML +
       (ex.type !== 'cardio' ? '<button class="add-set-btn-wide" onclick="sessionAddSetLive(' + ei + ')">+ Add Set</button>' : '') +
@@ -3133,6 +3148,26 @@ function sessionRemoveSetLive(ei, si) {
   var ex = sessionState.activeExercises[ei];
   if (!ex || ex.type === 'cardio' || !ex.sets || !ex.sets[si]) return;
   ex.sets.splice(si, 1);
+  persistActiveSession();
+  renderActiveSession();
+}
+
+function _sessionRoutineHasExerciseId(exerciseId) {
+  if (!sessionState.routineId || !exerciseId) return false;
+  var routine = getRoutines().find(function(r) { return r.id === sessionState.routineId; });
+  return !!(routine && (routine.exercises || []).some(function(ex) { return ex.id === exerciseId; }));
+}
+
+function sessionRemoveExerciseLive(ei) {
+  var ex = sessionState.activeExercises[ei];
+  if (!ex) return;
+  if (_sessionRoutineHasExerciseId(ex.id)) {
+    sessionState.removedRoutineExerciseIds = sessionState.removedRoutineExerciseIds || [];
+    if (sessionState.removedRoutineExerciseIds.indexOf(ex.id) === -1) {
+      sessionState.removedRoutineExerciseIds.push(ex.id);
+    }
+  }
+  sessionState.activeExercises.splice(ei, 1);
   persistActiveSession();
   renderActiveSession();
 }
@@ -3194,12 +3229,32 @@ function finishWorkout() {
   log.exercises = sessionState.activeExercises;
   logs[dateStr] = dayLogs;
   saveDailyLogs(logs);
+  maybeRemoveSessionExercisesFromRoutine();
   clearActiveSessionCache();
   sessionGoStep(5);
   setTimeout(function() {
     renderProgressPage();
     renderCalendar();
   }, 0);
+}
+
+function maybeRemoveSessionExercisesFromRoutine() {
+  var removedIds = sessionState.removedRoutineExerciseIds || [];
+  if (!sessionState.routineId || !removedIds.length) return;
+  var routines = getRoutines();
+  var idx = routines.findIndex(function(r) { return r.id === sessionState.routineId; });
+  if (idx === -1) return;
+  var removedSet = new Set(removedIds);
+  var removedNames = (routines[idx].exercises || [])
+    .filter(function(ex) { return removedSet.has(ex.id); })
+    .map(function(ex) { return ex.name || '(unnamed)'; });
+  if (!removedNames.length) return;
+  if (!confirm('Remove these exercise(s) from the original routine too?\n\n' + removedNames.join('\n'))) return;
+  routines[idx].exercises = (routines[idx].exercises || []).filter(function(ex) {
+    return !removedSet.has(ex.id);
+  });
+  saveRoutines(routines);
+  renderFolders();
 }
 
 function renderSessionSummary() {
@@ -3258,9 +3313,12 @@ function sessionReset() {
 
 /* ---- Session exercise picker ---- */
 
+var _sessionPickerSelectedIds = [];
+
 function openSessionExercisePicker() {
   document.getElementById('sessQuickName').value = '';
   document.getElementById('sessPickerSearch').value = '';
+  _sessionPickerSelectedIds = [];
   renderSessionPickerList();
   document.getElementById('sessionExPickerModal').classList.add('open');
   setTimeout(function(){ document.getElementById('sessQuickName').focus(); }, 50);
@@ -3281,13 +3339,22 @@ function renderSessionPickerList() {
   }
   container.innerHTML = exs.map(function(e) {
     var typeLabel = e.type.replace(/_/g, ' ');
-    return '<div class="lib-picker-item" onclick="addSessionExerciseFromLibrary(\'' + e.id + '\')">' +
+    var selected = _sessionPickerSelectedIds.indexOf(e.id) !== -1;
+    return '<div class="lib-picker-item" onclick="toggleSessionPickerExercise(\'' + e.id + '\')"' +
+      (selected ? ' style="border-color:var(--green);background:rgba(52,211,153,.08)"' : '') + '>' +
       '<div><strong>' + escH(e.name) + '</strong>' +
         '<span class="small" style="margin-left:8px;color:var(--muted)">' + typeLabel +
           (e.muscleGroup ? ' · ' + escH(e.muscleGroup) : '') + '</span></div>' +
-      '<span style="color:var(--green);font-size:18px">＋</span>' +
+      '<span style="color:var(--green);font-size:18px">' + (selected ? '✓' : '＋') + '</span>' +
     '</div>';
   }).join('');
+}
+
+function toggleSessionPickerExercise(libId) {
+  var idx = _sessionPickerSelectedIds.indexOf(libId);
+  if (idx === -1) _sessionPickerSelectedIds.push(libId);
+  else _sessionPickerSelectedIds.splice(idx, 1);
+  renderSessionPickerList();
 }
 
 function _makeSessionExercise(name, type, muscleGroup) {
@@ -3309,6 +3376,18 @@ function addSessionExerciseFromLibrary(libId) {
   sessionState.activeExercises.push(_makeSessionExercise(ex.name, ex.type, ex.muscleGroup, ex.trackingMode));
   persistActiveSession();
   renderActiveSession();
+  closeSessionExercisePicker();
+}
+
+function confirmSessionExercisePicker() {
+  _sessionPickerSelectedIds.forEach(function(libId) {
+    var ex = getExercises().find(function(e){ return e.id === libId; });
+    if (ex) sessionState.activeExercises.push(_makeSessionExercise(ex.name, ex.type, ex.muscleGroup, ex.trackingMode));
+  });
+  if (_sessionPickerSelectedIds.length) {
+    persistActiveSession();
+    renderActiveSession();
+  }
   closeSessionExercisePicker();
 }
 
@@ -3620,18 +3699,32 @@ function renderExercisePickerList() {
       return (ex.sourceLibId && ex.sourceLibId === e.id) ||
         ((ex.name || '').trim().toLowerCase() === e.name.toLowerCase() && ex.type === e.type);
     });
-    return '<div class="lib-picker-item" ' +
-      (alreadyAdded
-        ? 'style="opacity:.6;border-color:var(--green);background:rgba(52,211,153,.08);cursor:not-allowed"'
-        : 'onclick="pickExerciseFromLibrary(\'' + e.id + '\')"') + '>' +
+    return '<div class="lib-picker-item" onclick="toggleExerciseFromLibrary(\'' + e.id + '\')"' +
+      (alreadyAdded ? ' style="border-color:var(--green);background:rgba(52,211,153,.08)"' : '') + '>' +
       '<div>' +
         '<strong>' + escH(e.name) + '</strong>' +
         '<span class="small" style="margin-left:8px;color:var(--muted)">' + typeLabel +
           (e.muscleGroup ? ' · ' + escH(e.muscleGroup) : '') + '</span>' +
       '</div>' +
-      '<span style="color:var(--green);font-size:14px;line-height:1;font-weight:bold">' + (alreadyAdded ? 'Added' : '＋') + '</span>' +
+      '<span style="color:var(--green);font-size:14px;line-height:1;font-weight:bold">' + (alreadyAdded ? '✓ Added' : '＋') + '</span>' +
     '</div>';
   }).join('');
+}
+
+function toggleExerciseFromLibrary(libId) {
+  var ex = getExercises().find(function(e) { return e.id === libId; });
+  if (!ex) return;
+  var idx = _editorExercises.findIndex(function(item) {
+    return (item.sourceLibId && item.sourceLibId === libId) ||
+      ((item.name || '').trim().toLowerCase() === ex.name.toLowerCase() && item.type === ex.type);
+  });
+  if (idx !== -1) {
+    _editorExercises.splice(idx, 1);
+    renderRoutineEditor();
+    renderExercisePickerList();
+    return;
+  }
+  pickExerciseFromLibrary(libId);
 }
 
 function pickExerciseFromLibrary(libId) {
