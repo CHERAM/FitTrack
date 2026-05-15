@@ -5188,7 +5188,7 @@ function _nutStat(label, val, color, count) {
    PROGRESS V2
    ============================================================ */
 
-var progressView = { page: 'dashboard', exercise: '', workoutDate: '', workoutId: '', tab: 'summary', metric: 'volume', query: '', statDetail: '', calendarMonth: '', filterType: '', filterMuscle: '', measureMetric: 'bodyWeight', prFilter: { types: [], muscle: '', sort: 'date', open: false } };
+var progressView = { page: 'dashboard', exercise: '', workoutDate: '', workoutId: '', tab: 'summary', metric: 'volume', query: '', statDetail: '', calendarMonth: '', filterType: '', filterMuscle: '', measureMetric: 'bodyWeight', prFilter: { types: [], muscle: '', sort: 'date', open: false, query: '' } };
 
 function progressSetView(page) {
   progressView.page = page;
@@ -5899,10 +5899,12 @@ function prFilterToggleType(t) {
 }
 function prFilterSetMuscle(v) { progressView.prFilter.muscle = v; renderProgressPage(); }
 function prFilterSetSort(v)   { progressView.prFilter.sort   = v; renderProgressPage(); }
+function prFilterSetQuery(v)  { progressView.prFilter.query  = v; renderProgressPage(); }
 function prFilterClear() {
   progressView.prFilter.types  = [];
   progressView.prFilter.muscle = '';
   progressView.prFilter.sort   = 'date';
+  progressView.prFilter.query  = '';
   renderProgressPage();
 }
 
@@ -5925,7 +5927,7 @@ function renderStatPersonalRecords() {
     if (ex && ex.muscleGroup && muscles.indexOf(ex.muscleGroup) === -1) muscles.push(ex.muscleGroup);
   });
 
-  var hasFilter = f.types.length || f.muscle || f.sort !== 'date';
+  var hasFilter = f.types.length || f.muscle || f.sort !== 'date' || f.query;
   var filterBtnStyle = 'display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;border:1px solid ' + (hasFilter ? 'var(--accent)' : '#333') + ';background:' + (hasFilter ? 'rgba(249,115,22,.12)' : '#1a1a1a') + ';color:' + (hasFilter ? 'var(--accent)' : '#aaa') + ';cursor:pointer';
 
   var filterPanel = '';
@@ -5971,6 +5973,12 @@ function renderStatPersonalRecords() {
       '</div>';
   }
 
+  // Apply search query
+  if (f.query) {
+    var q = f.query.toLowerCase();
+    prs = prs.filter(function(pr) { return pr.name.toLowerCase().indexOf(q) !== -1; });
+  }
+
   // Apply type filter
   if (f.types.length) {
     prs = prs.filter(function(pr) { return f.types.indexOf(pr.type) !== -1; });
@@ -5999,13 +6007,14 @@ function renderStatPersonalRecords() {
   // 'date' already newest-first from getPRsInRange
 
   var header =
-    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">' +
-      '<div style="font-size:13px;color:#6a6a72">' + order.length + ' exercise' + (order.length !== 1 ? 's' : '') + (hasFilter ? ' (filtered)' : '') + '</div>' +
-      '<button onclick="prFilterToggleOpen()" style="' + filterBtnStyle + '">' +
+    '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">' +
+      '<input type="text" placeholder="Search exercise…" value="' + escH(f.query || '') + '" oninput="prFilterSetQuery(this.value)" style="flex:1;padding:9px 12px;border-radius:8px;border:1px solid ' + (f.query ? 'var(--accent)' : '#333') + ';background:#1a1a1a;color:#fff;font-size:13px;outline:none">' +
+      '<button onclick="prFilterToggleOpen()" style="' + filterBtnStyle + ';flex-shrink:0">' +
         '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 4h12M4 8h8M6 12h4"/></svg>' +
         'Filter' + (hasFilter ? ' ●' : '') +
       '</button>' +
-    '</div>';
+    '</div>' +
+    '<div style="font-size:12px;color:#6a6a72;margin-bottom:10px">' + order.length + ' exercise' + (order.length !== 1 ? 's' : '') + (hasFilter ? ' · filtered' : '') + '</div>';
 
   if (!order.length) return header + filterPanel + '<div class="p-empty">No PRs match the current filters.</div>';
 
