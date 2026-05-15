@@ -54,44 +54,44 @@ Notes:
 | Pec Deck Fly (Machine) | weight_training | Chest |
 | Chest Fly (Dumbbells) | weight_training | Chest |
 | Cable Fly (Cable) | weight_training | Chest |
-| Low-to-High Cable Fly (Cable) | weight_training | Chest |
+| Low to High Cable Fly (Cable) | weight_training | Chest |
 | Chest Dips (Dip Bars) | bodyweight | Chest |
-| Push-Up (Bodyweight) | bodyweight | Chest |
-| Incline Pushups (Bench) | bodyweight | Chest |
-| Knee Pushups (Bodyweight) | bodyweight | Chest |
-| Negative Pushups (Bodyweight) | bodyweight | Chest |
-| Scapula Pushups (Bodyweight) | bodyweight | Chest |
-| Weighted Push-Up (Plate) | weight_training | Chest |
+| Push Up (Bodyweight) | bodyweight | Chest |
+| Incline Push Up (Bench) | bodyweight | Chest |
+| Knee Push Up (Bodyweight) | bodyweight | Chest |
+| Negative Push Up (Bodyweight) | bodyweight | Chest |
+| Scapula Push Up (Bodyweight) | bodyweight | Chest |
+| Weighted Push Up (Plate) | weight_training | Chest |
 | Svend Press (Plate) | weight_training | Chest |
 
 ## Lats
 
 | name | type | muscleGroup |
 |---|---|---|
-| Pull-Up (Pull-Up Bar) | bodyweight | Lats |
-| Chin-Up (Pull-Up Bar) | bodyweight | Lats |
-| Assisted Pull-Up (Machine) | assisted_bodyweight | Lats |
-| Neutral Grip Pull-Up (Pull-Up Bar) | bodyweight | Lats |
+| Pull Up (Pull Up Bar) | bodyweight | Lats |
+| Chin Up (Pull Up Bar) | bodyweight | Lats |
+| Assisted Pull Up (Machine) | assisted_bodyweight | Lats |
+| Neutral Grip Pull Up (Pull Up Bar) | bodyweight | Lats |
 | Wide Grip Lat Pulldown (Machine/Cable) | weight_training | Lats |
 | Close Grip Lat Pulldown (Machine/Cable) | weight_training | Lats |
 | Reverse Grip Lat Pulldown (Machine/Cable) | weight_training | Lats |
-| Straight-Arm Pulldown (Cable) | weight_training | Lats |
-| One-Arm Kneeling Lat Pulldown (Cable) | weight_training | Lats |
+| Straight Arm Pulldown (Cable) | weight_training | Lats |
+| One Arm Kneeling Lat Pulldown (Cable) | weight_training | Lats |
 | Pullover (Dumbbell) | weight_training | Lats |
-| Scapula Pullups (Pull-Up Bar) | bodyweight | Lats |
-| Negative Pullups (Pull-Up Bar) | bodyweight | Lats |
-| Band Pulldowns (Resistance Band) | assisted_bodyweight | Lats |
+| Scapula Pull Up (Pull Up Bar) | bodyweight | Lats |
+| Negative Pull Up (Pull Up Bar) | bodyweight | Lats |
+| Band Pulldown (Resistance Band) | assisted_bodyweight | Lats |
 
 ## Upper Back
 
 | name | type | muscleGroup |
 |---|---|---|
-| Bent-Over Row (Barbell) | weight_training | Upper Back |
+| Bent Over Row (Barbell) | weight_training | Upper Back |
 | Pendlay Row (Barbell) | weight_training | Upper Back |
-| T-Bar Row (Machine/Barbell) | weight_training | Upper Back |
+| T Bar Row (Machine/Barbell) | weight_training | Upper Back |
 | Seated Row (Cable) | weight_training | Upper Back |
 | Chest Supported Row (Machine) | weight_training | Upper Back |
-| One-Arm Row (Dumbbell) | weight_training | Upper Back |
+| One Arm Row (Dumbbell) | weight_training | Upper Back |
 | Row (Machine) | weight_training | Upper Back |
 | Inverted Row (Bar/Rack) | bodyweight | Upper Back |
 | Australian Rows (Bar/Rack) | bodyweight | Upper Back |
@@ -125,19 +125,19 @@ Notes:
 | Rear Delt Fly (Dumbbells) | weight_training | Shoulders |
 | Reverse Pec Deck (Machine) | weight_training | Shoulders |
 | Front Raise (Plate/Dumbbells) | weight_training | Shoulders |
-| Handstand Push-Up (Bodyweight) | bodyweight | Shoulders |
+| Handstand Push Up (Bodyweight) | bodyweight | Shoulders |
 
 ## Biceps
 
 | name | type | muscleGroup |
 |---|---|---|
 | Curl (Barbell) | weight_training | Biceps |
-| Curl (EZ-Bar) | weight_training | Biceps |
+| Curl (EZ Bar) | weight_training | Biceps |
 | Curl (Dumbbells) | weight_training | Biceps |
 | Alternating Curl (Dumbbells) | weight_training | Biceps |
 | Hammer Curl (Dumbbells) | weight_training | Biceps |
 | Incline Curl (Dumbbells) | weight_training | Biceps |
-| Preacher Curl (Machine/EZ-Bar) | weight_training | Biceps |
+| Preacher Curl (Machine/EZ Bar) | weight_training | Biceps |
 | Curl (Cable) | weight_training | Biceps |
 | Concentration Curl (Dumbbell) | weight_training | Biceps |
 | Bayesian Curl (Cable) | weight_training | Biceps |
@@ -146,15 +146,15 @@ Notes:
 
 | name | type | muscleGroup |
 |---|---|---|
-| Close-Grip Bench Press (Barbell) | weight_training | Triceps |
+| Close Grip Bench Press (Barbell) | weight_training | Triceps |
 | Pushdown (Cable) | weight_training | Triceps |
 | Rope Pushdown (Cable) | weight_training | Triceps |
 | Overhead Triceps Extension (Cable) | weight_training | Triceps |
-| Skull Crusher (EZ-Bar) | weight_training | Triceps |
+| Skull Crusher (EZ Bar) | weight_training | Triceps |
 | Overhead Triceps Extension (Dumbbell) | weight_training | Triceps |
 | Bench Dip (Bench) | bodyweight | Triceps |
 | Parallel Bar Dip (Dip Bars) | bodyweight | Triceps |
-| Single-Arm Pushdown (Cable) | weight_training | Triceps |
+| Single Arm Pushdown (Cable) | weight_training | Triceps |
 
 ## Forearms
 
@@ -162,29 +162,29 @@ Notes:
 |---|---|---|
 | Wrist Curl (Barbell/Dumbbells) | weight_training | Forearms |
 | Reverse Wrist Curl (Barbell/Dumbbells) | weight_training | Forearms |
-| Reverse Curl (EZ-Bar/Barbell) | weight_training | Forearms |
+| Reverse Curl (EZ Bar/Barbell) | weight_training | Forearms |
 | Hammer Curl (Dumbbells) | weight_training | Forearms |
 | Plate Pinch Hold (Plates) | timed | Forearms |
-| Bar Hang (Pull-Up Bar) | timed | Forearms |
-| Dead Hang (Pull-Up Bar) | timed | Forearms |
+| Bar Hang (Pull Up Bar) | timed | Forearms |
+| Dead Hang (Pull Up Bar) | timed | Forearms |
 | Wrist Roller (Wrist Roller) | weight_training | Forearms |
 
 ## Core
 
 | name | type | muscleGroup |
 |---|---|---|
-| Sit-Up (Bodyweight) | bodyweight | Core |
+| Sit Up (Bodyweight) | bodyweight | Core |
 | Crunch (Bodyweight) | bodyweight | Core |
 | Cable Crunch (Cable) | weight_training | Core |
-| Hanging Knee Raise (Pull-Up Bar) | bodyweight | Core |
-| Hanging Leg Raise (Pull-Up Bar) | bodyweight | Core |
+| Hanging Knee Raise (Pull Up Bar) | bodyweight | Core |
+| Hanging Leg Raise (Pull Up Bar) | bodyweight | Core |
 | Ab Wheel Rollout (Ab Wheel) | bodyweight | Core |
-| Decline Sit-Up (Bench) | bodyweight | Core |
+| Decline Sit Up (Bench) | bodyweight | Core |
 | Toe Touch Crunch (Bodyweight) | bodyweight | Core |
-| V-Up (Bodyweight) | bodyweight | Core |
+| V Up (Bodyweight) | bodyweight | Core |
 | Dead Bug (Bodyweight) | bodyweight | Core |
 | Hollow Body Hold (Bodyweight) | timed | Core |
-| Hanging L-Sit (Dip Bars/Pull-Up Bar) | timed | Core |
+| Hanging L Sit (Dip Bars/Pull Up Bar) | timed | Core |
 | Plank Hold (Bodyweight) | timed | Core |
 | Plank (Bodyweight) | timed | Core |
 | Leg Raises (Bodyweight) | bodyweight | Core |
@@ -196,7 +196,7 @@ Notes:
 | Russian Twist (Bodyweight) | bodyweight | Obliques |
 | Woodchopper (Cable) | weight_training | Obliques |
 | Side Plank (Bodyweight) | timed | Obliques |
-| Hanging Oblique Knee Raise (Pull-Up Bar) | bodyweight | Obliques |
+| Hanging Oblique Knee Raise (Pull Up Bar) | bodyweight | Obliques |
 | Landmine Rotation (Barbell) | weight_training | Obliques |
 | Side Bend (Dumbbell) | weight_training | Obliques |
 
@@ -224,7 +224,7 @@ Notes:
 | Walking Lunge (Dumbbells) | weight_training | Quads |
 | Leg Extension (Machine) | weight_training | Quads |
 | Squat (Smith Machine) | weight_training | Quads |
-| Step-Up (Dumbbells) | weight_training | Quads |
+| Step Up (Dumbbells) | weight_training | Quads |
 | Wall Sit (Bodyweight) | timed | Quads |
 
 ## Hamstrings
@@ -232,13 +232,13 @@ Notes:
 | name | type | muscleGroup |
 |---|---|---|
 | Romanian Deadlift (Barbell) | weight_training | Hamstrings |
-| Stiff-Leg Deadlift (Barbell) | weight_training | Hamstrings |
+| Stiff Leg Deadlift (Barbell) | weight_training | Hamstrings |
 | Lying Leg Curl (Machine) | weight_training | Hamstrings |
 | Seated Leg Curl (Machine) | weight_training | Hamstrings |
 | Nordic Curl (Bodyweight) | bodyweight | Hamstrings |
 | Glute Ham Raise (Machine/Bodyweight) | bodyweight | Hamstrings |
-| Single-Leg Romanian Deadlift (Dumbbell) | weight_training | Hamstrings |
-| Pull-Through (Cable) | weight_training | Hamstrings |
+| Single Leg Romanian Deadlift (Dumbbell) | weight_training | Hamstrings |
+| Pull Through (Cable) | weight_training | Hamstrings |
 
 ## Glutes
 
@@ -250,10 +250,10 @@ Notes:
 | Kickback (Cable) | weight_training | Glutes |
 | Bulgarian Split Squat (Dumbbells) | weight_training | Glutes |
 | Walking Lunge (Dumbbells) | weight_training | Glutes |
-| Step-Up (Dumbbells) | weight_training | Glutes |
+| Step Up (Dumbbells) | weight_training | Glutes |
 | Sumo Deadlift (Barbell) | weight_training | Glutes |
 | Kettlebell Swing (Kettlebell) | weight_training | Glutes |
-| Pull-Through (Cable) | weight_training | Glutes |
+| Pull Through (Cable) | weight_training | Glutes |
 | Frog Pump (Bodyweight) | bodyweight | Glutes |
 
 ## Adductors
@@ -274,7 +274,7 @@ Notes:
 | Hip Abduction (Cable) | weight_training | Abductors |
 | Banded Lateral Walk (Resistance Band) | assisted_bodyweight | Abductors |
 | Clamshell (Bodyweight) | bodyweight | Abductors |
-| Side-Lying Leg Raise (Bodyweight) | bodyweight | Abductors |
+| Side Lying Leg Raise (Bodyweight) | bodyweight | Abductors |
 
 ## Calves
 
@@ -284,7 +284,7 @@ Notes:
 | Seated Calf Raise (Machine Plates) | weight_training | Calves |
 | Calf Raise (Leg Press Machine) | weight_training | Calves |
 | Donkey Calf Raise (Machine) | weight_training | Calves |
-| Single-Leg Calf Raise (Bodyweight) | bodyweight | Calves |
+| Single Leg Calf Raise (Bodyweight) | bodyweight | Calves |
 | Tibialis Raise (Bodyweight) | bodyweight | Calves |
 
 ## Full Body
