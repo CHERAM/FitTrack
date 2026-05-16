@@ -3982,7 +3982,10 @@ function calendarNextMonth() {
 function renderCalendar() {
   var monthNames = ['January','February','March','April','May','June',
                     'July','August','September','October','November','December'];
-  document.getElementById('calendarTitle').textContent = monthNames[_calMonth] + ' ' + _calYear;
+  var titleEl = document.getElementById('calendarTitle');
+  var gridEl  = document.getElementById('calendarGrid');
+  if (!titleEl || !gridEl) return;
+  titleEl.textContent = monthNames[_calMonth] + ' ' + _calYear;
 
   var logs  = getDailyLogs();
   var meta  = getDailyMeta();
@@ -4010,7 +4013,7 @@ function renderCalendar() {
       html += '<div class="cal-day other-month">' + j + '</div>';
     }
   }
-  document.getElementById('calendarGrid').innerHTML = html;
+  gridEl.innerHTML = html;
 }
 
 function getCalendarDayClass(dateStr, logs, meta, today) {
