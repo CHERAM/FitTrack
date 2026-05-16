@@ -197,6 +197,7 @@
   .btn-neutral:hover{background:rgba(255,255,255,.08)!important;color:var(--text)!important;transform:none!important;}
   .btn-success-fill{background:var(--accent)!important;color:#080808!important;border:1px solid transparent!important;}
   .btn-success-fill:hover{background:var(--accent-2)!important;color:#080808!important;transform:none!important;box-shadow:var(--glow)!important;}
+  .btn-saved-state{background:#34d399!important;color:#080808!important;border:1px solid transparent!important;transform:scale(1.04)!important;transition:background .2s,transform .15s!important;}
   .btn-danger-fill{background:transparent!important;color:var(--red)!important;border:1px solid rgba(251,113,133,.3)!important;}
   .btn-danger-fill:hover{background:rgba(251,113,133,.12)!important;color:var(--red)!important;transform:none!important;}
   .btn-sm{padding:5px 11px!important;font-size:12px!important;transform:none!important;}
@@ -2091,13 +2092,13 @@ function saveTrackerData() {
 
   var btn = document.getElementById('trackerSaveBtn');
   btn.textContent = '✓ Saved';
-  btn.style.background = 'var(--green)';
-  btn.style.transform = 'scale(1.04)';
+  btn.classList.remove('btn-success-fill');
+  btn.classList.add('btn-saved-state');
   btn.disabled = true;
   setTimeout(function(){
     btn.textContent = 'Save';
-    btn.style.background = '';
-    btn.style.transform = '';
+    btn.classList.remove('btn-saved-state');
+    btn.classList.add('btn-success-fill');
     btn.disabled = false;
   }, 2000);
 }
