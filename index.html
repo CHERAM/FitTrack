@@ -2090,8 +2090,16 @@ function saveTrackerData() {
   renderCalendar();
 
   var btn = document.getElementById('trackerSaveBtn');
-  btn.textContent = 'Saved!';
-  setTimeout(function(){ btn.textContent = 'Save'; }, 1600);
+  btn.textContent = '✓ Saved';
+  btn.style.background = 'var(--green)';
+  btn.style.transform = 'scale(1.04)';
+  btn.disabled = true;
+  setTimeout(function(){
+    btn.textContent = 'Save';
+    btn.style.background = '';
+    btn.style.transform = '';
+    btn.disabled = false;
+  }, 2000);
 }
 
 function trackerGoToToday() {
@@ -6201,8 +6209,16 @@ function saveAddMeasurement() {
   meta[dateStr] = entry;
   saveDailyMeta(meta);
   refreshOverviewStats();
-  progressView.page = 'measures';
-  renderProgressPage();
+  var amBtn = document.querySelector('#progressApp .progress-body button.btn-success-fill');
+  if (amBtn) {
+    amBtn.textContent = '✓ Saved';
+    amBtn.style.background = 'var(--green)';
+    amBtn.disabled = true;
+  }
+  setTimeout(function() {
+    progressView.page = 'measures';
+    renderProgressPage();
+  }, 900);
 }
 
 function renderAddMeasurementView() {
