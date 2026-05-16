@@ -5537,9 +5537,6 @@ function renderPDashboard() {
     '<div class="p-top-stat' + (lcal ? '' : ' empty') + '"><div class="p-top-stat-val">' + (lcal || '--') + '</div><div class="p-top-stat-lbl">Latest Calories</div></div>' +
   '</div>';
   return topStats +
-    '<div class="p-line-title"><div class="p-big-stat">' + stat + '<span>this week</span></div></div>' +
-    pLineChart(series, unit, true) +
-    '<div class="p-pills">' + dashMetricPill('duration','Duration') + dashMetricPill('volume','Volume') + dashMetricPill('reps','Reps') + '</div>' +
     '<div class="p-section-label">Dashboard</div>' +
     '<div class="p-tile-grid">' +
       '<button class="p-tile" onclick="progressSetView(\'statistics\')">&#9097; Statistics</button>' +
